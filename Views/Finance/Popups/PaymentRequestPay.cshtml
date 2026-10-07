@@ -1,0 +1,36 @@
+@model PrPayVm
+@using SouthernTravels.Finance.Data
+@{
+    Layout = "_Modal";
+    var s = Model.Service;
+    ViewData["Title"] = "Update Payment Details";
+    ViewData["Sub"] = s.T.Id + " · " + s.V.Name;
+    ViewData["Width"] = 560;
+    ViewData["Action"] = "PaymentPay";
+}
+<input type="hidden" name="sid" value="@s.Id">
+<partial name="_Facts" model="@(new FactsBlock { Items = [("Vendor Name", s.V.Name, null, false), ("Service Name", s.Name, null, false), ("Approved Payable", Fmt.Inr(s.Bill!.Rec), G.Strong, true), ("Payment Amount", Fmt.Inr(s.Bill.Rec), G.Strong, true)] })" />
+<div class="sec">Payment Details</div>
+<div class="fields">
+    <label class="fld"><span class="fld-l">Payment Date<span class="req" aria-hidden="true">*</span></span><input type="date" name="paymentDate" max="@FinanceStore.Today" class="fld-in" data-req aria-required="true"></label>
+    <div class="fld"><span class="fld-l">Added Date &amp; Time</span><div class="fld-ro">Will be set on submit</div></div>
+    <label class="fld"><span class="fld-l">Bank Name<span class="req" aria-hidden="true">*</span></span><input type="text" name="bank" class="fld-in" data-req aria-required="true"></label>
+    <label class="fld"><span class="fld-l">Payment Mode<span class="req" aria-hidden="true">*</span></span>
+        <select name="mode" class="fld-in sel" data-req aria-required="true">
+            <option value="">Select…</option>
+            @foreach (var m in FinanceController.PaymentModes) { <option value="@m">@m</option> }
+        </select>
+    </label>
+    @* Required depending on the payment mode: Cheque No. for cheques, UTR for electronic transfers. *@
+    <label class="fld"><span class="fld-l">Transaction No. / UTR No.<span class="req" aria-hidden="true">*</span></span><input type="text" name="utr" class="fld-in" data-req-not-mode="Cheque,Cash"></label>
+    <label class="fld"><span class="fld-l">Cheque No.<span class="req" aria-hidden="true" hidden>*</span></span><input type="text" name="chequeNo" class="fld-in" data-req-mode="Cheque"></label>
+    <label class="fld"><span class="fld-l">Amount Paid (₹)<span class="req" aria-hidden="true">*</span></span><input type="number" name="amountPaid" min="1" step="1" value="@s.Bill.Rec" class="fld-in" data-req aria-required="true"></label>
+    <div class="fld"><span class="fld-l">Payment Done By</span><div class="fld-ro">@Model.PaidBy</div></div>
+    <label class="fld full"><span class="fld-l">Upload Payment Slip<span class="req" aria-hidden="true">*</span></span>
+        <span class="fld-file"><input type="file" name="slip" data-req data-file aria-required="true"><span class="fld-file-ok" data-file-text></span></span>
+    </label>
+</div>
+@section Footer {
+    <button type="button" class="btn" data-close>Cancel</button>
+    <button type="submit" class="btn btn-confirm" data-needs-valid disabled>Mark as Paid</button>
+}

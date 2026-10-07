@@ -1,0 +1,41 @@
+@model RaiseVm
+@{
+    Layout = "_Modal";
+    var n = Model.Services.Count;
+    ViewData["Title"] = Model.Reupload ? "Reupload Bill" : "Raise Bill";
+    ViewData["Sub"] = n == 1 ? "1 service" : n + " services selected — enter bill details for each";
+    ViewData["Width"] = 820;
+    ViewData["Action"] = "RaiseBill";
+}
+@for (var i = 0; i < n; i++)
+{
+    var s = Model.Services[i];
+    <div class="pop-head @(i > 0 ? "pop-head-sep" : "")">
+        <span>@s.T.Id · @s.V.Name</span>
+        <span class="pop-head-r">@(n > 1 ? $"Service {i + 1} of {n}" : "")</span>
+    </div>
+    <partial name="_Facts" model="@(new FactsBlock { Cols = 4, Strip = true, Items = [("Ticket No.", s.T.Id, G.Link, true), ("Vendor Name", s.V.Name, null, false), ("Service Name", s.Name, null, false), ("Vendor Payable", Fmt.Inr(s.Neg), G.Strong, true)] })" />
+    @if (Model.Reupload && s.Bill != null)
+    {
+        <partial name="_Facts" model="@(new FactsBlock { Cols = 4, Warn = true, Title = "Previous bill on file" + (s.Bill.St == "D" ? " (Disputed)" : ""), Items = [("Bill No.", s.Bill.No, null, false), ("Bill Date", Fmt.Fd(s.Bill.Date), null, false), ("Uploaded file", s.Bill.Doc, null, false), ("Amount as per Invoice", Fmt.Inr(s.Bill.Inv), null, false)] })" />
+    }
+    <input type="hidden" name="Items[@i].Sid" value="@s.Id">
+    <div class="fields">
+        <label class="fld"><span class="fld-l">Bill Date<span class="req" aria-hidden="true">*</span></span><input type="date" name="Items[@i].Date" class="fld-in" data-req aria-required="true"></label>
+        <label class="fld"><span class="fld-l">Bill No.<span class="req" aria-hidden="true">*</span></span><input type="text" name="Items[@i].No" class="fld-in" placeholder="INV-2026-0451" data-req aria-required="true"></label>
+        <label class="fld full"><span class="fld-l">Upload Bill<span class="req" aria-hidden="true">*</span></span>
+            <span class="fld-file"><input type="file" name="Items[@i].File" data-req data-file aria-required="true"><span class="fld-file-ok" data-file-text></span></span>
+        </label>
+        <div class="fld full"><span class="fld-l">Bill Upload Date &amp; Time</span><div class="fld-ro" data-file-stamp>-</div></div>
+        <label class="fld"><span class="fld-l">Amount as per Invoice (₹)<span class="req" aria-hidden="true">*</span></span><input type="number" min="1" step="1" name="Items[@i].Inv" class="fld-in" placeholder="@s.Neg" data-req aria-required="true"></label>
+        <label class="fld"><span class="fld-l">Recommended Amount for Payment (₹)<span class="req" aria-hidden="true">*</span></span><input type="number" min="1" step="1" name="Items[@i].Rec" class="fld-in" placeholder="@s.Neg" data-req aria-required="true"></label>
+    </div>
+}
+@section Footer {
+    <button type="button" class="btn" data-close>Cancel</button>
+    @if (!Model.Reupload)
+    {
+        <button type="submit" name="Kind" value="D" class="btn btn-soft" data-needs-valid disabled>Raise Dispute</button>
+    }
+    <button type="submit" name="Kind" value="R" class="btn btn-confirm" data-needs-valid disabled>Submit@(n > 1 ? $" ({n})" : "")</button>
+}

@@ -1,0 +1,78 @@
+@model AdvPayVm
+@using SouthernTravels.Finance.Data
+@{
+    Layout = "_Modal";
+    var a = Model.Req; var s = Model.Service; var pay = a.Pay;
+    ViewData["Title"] = Model.ViewOnly ? "Payment Details" : "Update Payment";
+    ViewData["Sub"] = s.T.Id + " · " + s.V.Name;
+    ViewData["Width"] = 560;
+    if (!Model.ViewOnly) { ViewData["Action"] = "AdvancePay"; }
+}
+<partial name="_Facts" model="@(new FactsBlock { Items = [("MBK No.", s.T.Mbk, null, false), ("Vendor Name", s.V.Name, null, false), ("Service Name", s.Name, null, false), ("Service City", s.V.City, null, false), ("Total Vendor Payable", Fmt.Inr(s.Neg), null, true), ("Advance Amount", Fmt.Inr(a.Amt), G.Blue, true)] })" />
+
+<div class="sec">TDS &amp; Net Payable</div>
+<div class="fields" data-tds-calc data-amt="@a.Amt">
+    @if (Model.ViewOnly)
+    {
+        <div class="fld"><span class="fld-l">TDS %</span><div class="fld-ro">@pay!.Pct.ToString(Fmt.Inv)%</div></div>
+        <div class="fld"><span class="fld-l">TDS Amount</span><div class="fld-ro">@Fmt.Inr(pay.Tds)</div></div>
+        <div class="fld full"><span class="fld-l">Net Payable (Advance − TDS)</span><div class="fld-ro">@Fmt.Inr(pay.Net)</div></div>
+    }
+    else
+    {
+        <input type="hidden" name="sid" value="@a.Sid">
+        <label class="fld"><span class="fld-l">TDS %<span class="req" aria-hidden="true">*</span></span><input type="number" name="pct" min="0" max="100" step="0.01" placeholder="e.g. 2" class="fld-in" data-req data-pct aria-required="true"></label>
+        <div class="fld"><span class="fld-l">TDS Amount</span><div class="fld-ro" data-tds>-</div></div>
+        <div class="fld full"><span class="fld-l">Net Payable (Advance − TDS)</span><div class="fld-ro" data-net>-</div></div>
+    }
+</div>
+
+<div class="sec">Payment Details</div>
+<div class="fields">
+    @if (Model.ViewOnly)
+    {
+        <div class="fld"><span class="fld-l">Payment Date</span><div class="fld-ro">@Fmt.Fd(pay!.PaymentDate)</div></div>
+        <div class="fld"><span class="fld-l">Added Date &amp; Time</span><div class="fld-ro">@Fmt.Fdt(pay.Date)</div></div>
+        <div class="fld"><span class="fld-l">Cheque Type</span><div class="fld-ro">@pay.CType</div></div>
+        <div class="fld"><span class="fld-l">@(pay.CType == "Online" ? "UTR / Transaction No." : "Cheque No.")</span><div class="fld-ro">@pay.No</div></div>
+        <div class="fld"><span class="fld-l">Bank Name</span><div class="fld-ro">@pay.Bank</div></div>
+        <div class="fld"><span class="fld-l">Payment Mode</span><div class="fld-ro">@pay.Mode</div></div>
+        <div class="fld"><span class="fld-l">Amount Paid</span><div class="fld-ro">@Fmt.Inr(pay.AmountPaid)</div></div>
+        <div class="fld"><span class="fld-l">Payment Slip</span><div class="fld-ro">@(pay.Slip != "" ? pay.Slip : "-")</div></div>
+    }
+    else
+    {
+        <label class="fld"><span class="fld-l">Payment Date<span class="req" aria-hidden="true">*</span></span><input type="date" name="paymentDate" max="@FinanceStore.Today" class="fld-in" data-req aria-required="true"></label>
+        <div class="fld"><span class="fld-l">Added Date &amp; Time</span><div class="fld-ro">Will be set on submit</div></div>
+        <label class="fld"><span class="fld-l">Cheque Type</span>
+            <select name="ctype" class="fld-in sel" data-ctype>
+                <option value="Physical Cheque">Physical Cheque</option>
+                <option value="Online">Online</option>
+            </select>
+        </label>
+        <label class="fld"><span class="fld-l"><span data-no-label>Cheque No.</span><span class="req" aria-hidden="true">*</span></span><input type="text" name="no" class="fld-in" data-req aria-required="true"></label>
+        <label class="fld"><span class="fld-l">Bank Name<span class="req" aria-hidden="true">*</span></span><input type="text" name="bank" class="fld-in" data-req aria-required="true"></label>
+        <label class="fld"><span class="fld-l">Payment Mode<span class="req" aria-hidden="true">*</span></span>
+            <select name="mode" class="fld-in sel" data-req aria-required="true">
+                <option value="">Select…</option>
+                @foreach (var m in FinanceController.PaymentModes) { <option value="@m">@m</option> }
+            </select>
+        </label>
+        <label class="fld full"><span class="fld-l">Amount Paid (₹)<span class="req" aria-hidden="true">*</span></span><input type="number" name="amountPaid" min="1" step="1" class="fld-in" placeholder="Net payable after TDS" data-req data-amount-auto aria-required="true"></label>
+        <label class="fld full"><span class="fld-l">Upload Payment Slip<span class="req" aria-hidden="true">*</span></span>
+            <span class="fld-file"><input type="file" name="slip" data-req data-file aria-required="true"><span class="fld-file-ok" data-file-text></span></span>
+        </label>
+    }
+</div>
+@section Footer {
+    @if (Model.ViewOnly)
+    {
+        <a href="@G.AdviceUrl(a.Sid)" target="_blank" rel="noopener" class="btn">Print Advice</a>
+        <button type="button" class="btn" data-close>Close</button>
+    }
+    else
+    {
+        <button type="button" class="btn" data-close>Cancel</button>
+        <button type="submit" class="btn btn-confirm" data-needs-valid disabled>Mark as Paid</button>
+    }
+}

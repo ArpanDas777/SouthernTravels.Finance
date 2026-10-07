@@ -1,0 +1,18 @@
+@model Svc
+@{
+    Layout = "_Modal";
+    var b = Model.Bill!;
+    ViewData["Title"] = "Bill Details";
+    ViewData["Sub"] = Model.T.Id + " · " + Model.V.Name;
+    ViewData["Width"] = 520;
+}
+<partial name="_Facts" model="@(new FactsBlock { Items = [("Ticket No.", Model.T.Id, G.Link, true), ("Vendor Name", Model.V.Name, null, false), ("Service Name", Model.Name, null, false), ("Vendor Payable", Fmt.Inr(Model.Neg), G.Strong, true)] })" />
+<div class="sec">Bill</div>
+<partial name="_Facts" model="@(new FactsBlock { Items = [("Bill Date", Fmt.Fd(b.Date), null, false), ("Bill No.", b.No, null, false), ("Uploaded Document", b.Doc, null, false), ("Bill Upload Date & Time", Fmt.Fdt(b.Upl), null, false), ("Amount as per Invoice", Fmt.Inr(b.Inv), b.Inv > Model.Neg ? G.Red : null, true), ("Recommended Amount for Payment", Fmt.Inr(b.Rec), null, false)] })" />
+@if (b.St == "D")
+{
+    <div class="note-danger">This bill is flagged as a Dispute — the invoiced amount doesn’t match the expected vendor payable. Reupload a corrected bill or raise it with Finance.</div>
+}
+@section Footer {
+    <button type="button" class="btn" data-close>Close</button>
+}

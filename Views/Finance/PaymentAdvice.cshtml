@@ -1,0 +1,95 @@
+@model PaymentAdviceVm
+@{
+    Layout = "_AdviceLayout";
+    var v = Model.Vendor;
+    var k = Model.Kyc;
+    ViewData["FileName"] = Model.FileName;
+    ViewData["ToolbarTitle"] = "Payment Advice · " + v.Name;
+    ViewData["ToolbarHint"] = $"{Model.Items.Count} unpaid service(s) across {Model.Tickets} ticket(s)";
+    ViewData["DocTitle"] = "PAYMENT ADVICE";
+    ViewData["Generated"] = Model.Generated;
+    ViewData["Signs"] = new[] { "Finance Executive", "Finance Head", "Management", "Vendor Acknowledgement" };
+    ViewData["RemarkLines"] = 3;
+}
+@section Meta {
+    <div class="meta-row"><span class="muted">Advice No:</span> <strong>@Model.AdviceNo</strong></div>
+    <div class="meta-row"><span class="muted">Date:</span> <strong>@Model.Date</strong></div>
+    <div class="meta-row"><span class="muted">Vendor Code:</span> <strong>@v.Id</strong></div>
+    @if (Model.Tickets == 1)
+    {
+        <div class="meta-row"><span class="muted">Ticket No:</span> <strong>@Model.Items[0].T.Id</strong></div>
+    }
+    else
+    {
+        <div class="meta-row"><span class="muted">Tickets:</span> <strong>@Model.Tickets</strong></div>
+    }
+}
+
+<div class="strip">Vendor Details</div>
+<div class="box cols-4">
+    <div class="f span-12"><div class="fl">Vendor Name</div><div class="fv">@v.Name</div></div>
+    <div class="f span-34"><div class="fl">Vendor Address</div><div class="fv">@Model.VendorAddress</div></div>
+    <div class="f"><div class="fl">Service Type</div><div class="mt2"><span class="svc svc-@G.SvcKey(v.Type)">@v.Type</span></div></div>
+    <div class="f"><div class="fl">Contact Person</div><div class="fv">@k.Contact</div></div>
+    <div class="f"><div class="fl">PAN No.</div><div class="fv">@k.Pan</div></div>
+    <div class="f"><div class="fl">GST No.</div><div class="fv">@k.Gstn</div></div>
+</div>
+
+<div class="strip">Vendor Bank Details</div>
+<div class="box cols-4">
+    <div class="f"><div class="fl">Bank Name</div><div class="fv">@k.Bank</div></div>
+    <div class="f"><div class="fl">Account No.</div><div class="fv">@k.Acc</div></div>
+    <div class="f"><div class="fl">IFSC</div><div class="fv">@k.Ifsc</div></div>
+    <div class="f"><div class="fl">TDS % / Terms</div><div class="fv">@k.Terms</div></div>
+</div>
+
+<div class="strip">Ticket Details — Pending Payment</div>
+<div class="tbl-wrap">
+    <table class="tbl">
+        <thead>
+            <tr>
+                <th class="c-n">#</th>
+                <th>Ticket / MBK</th>
+                <th>Guest</th>
+                <th>Service / Conf. No.</th>
+                <th>Service Dates</th>
+                <th>Bill No. / Date</th>
+                <th class="r">Selling Price (₹)</th>
+                <th class="r">Vendor Payable (₹)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @for (var i = 0; i < Model.Items.Count; i++)
+            {
+                var s = Model.Items[i];
+                <tr>
+                    <td class="c-n muted">@(i + 1)</td>
+                    <td><div class="b">@s.T.Id</div><div class="sub">@s.T.Mbk</div></td>
+                    <td><div>@s.T.Pax</div><div class="sub">@s.T.N pax</div></td>
+                    <td><div>@s.Name</div><div class="sub">@(s.Conf != "" ? s.Conf : "Pending")</div></td>
+                    <td class="nowrap"><div>@Fmt.Dmy(s.Start)</div><div class="sub">to @Fmt.Dmy(s.End)</div></td>
+                    <td class="nowrap"><div>@(s.Bill?.No ?? "-")</div><div class="sub">@Fmt.Dmy(s.Bill?.Date)</div></td>
+                    <td class="r">@Fmt.Amt(s.Sell)</td>
+                    <td class="r b">@Fmt.Amt(s.Bill?.Rec ?? 0)</td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="6">Total — @Model.Items.Count service(s), @Model.Tickets ticket(s)</td>
+                <td class="r">@Fmt.Inr(Model.TotalSelling)</td>
+                <td class="r">@Fmt.Inr(Model.Total)</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<div class="strip">Payment Details — To Be Completed On Disbursement</div>
+<div class="box cols-4 ro">
+    @foreach (var label in new[] { "UTR / Ref No.", "Paid From (Bank)", "Payment Date", "Mode of Payment" })
+    {
+        <div class="f"><div class="fl">@label</div><div class="blank">&nbsp;</div></div>
+    }
+    <div class="f span-12"><div class="fl">TDS Deducted (₹)</div><div class="blank">&nbsp;</div></div>
+    <div class="f span-34"><div class="fl">Amount Paid (₹)</div><div class="blank">&nbsp;</div></div>
+</div>

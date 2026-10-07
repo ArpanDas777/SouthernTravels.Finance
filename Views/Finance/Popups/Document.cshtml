@@ -1,0 +1,16 @@
+@model DocVm
+@{
+    Layout = "_Modal";
+    ViewData["Title"] = Model.DocName;
+    ViewData["Sub"] = Model.Vendor.Id + " · " + Model.Vendor.Name;
+    ViewData["Width"] = 460;
+    ViewData["FootJustify"] = "center";
+}
+<div class="doc-preview">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path></svg>
+    <div class="doc-file">@Model.File</div>
+</div>
+<div class="doc-note">Document preview isn't wired to a real file store yet — this is a placeholder.</div>
+@section Footer {
+    <button type="button" class="btn" data-close>Close</button>
+}

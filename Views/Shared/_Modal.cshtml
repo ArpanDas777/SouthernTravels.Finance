@@ -1,0 +1,25 @@
+@*
+    Layout for popups. Popup views are fetched by site.js and injected into #modal-root.
+    ViewData: Title, Sub, Width (px), Action (POST action name, optional), FootJustify.
+*@
+@{
+    var action = ViewData["Action"] as string;
+    var width = ViewData["Width"] ?? 520;
+    var foot = ViewData["FootJustify"] as string ?? "flex-end";
+}
+<div class="dialog" role="dialog" aria-modal="true" aria-label="@ViewData["Title"]" style="width:@(width)px">
+    <div class="dialog-head">
+        <div class="flex1">
+            <div class="dialog-title">@ViewData["Title"]</div>
+            <div class="dialog-sub">@ViewData["Sub"]</div>
+        </div>
+        <button type="button" class="dialog-x" data-close aria-label="Close">×</button>
+    </div>
+    @* View-only popups have no Action and only type="button" buttons, so their form never submits. *@
+    <form method="post" action="@(action != null ? Url.Action(action, "Finance") : null)" enctype="multipart/form-data" class="dialog-form @(action != null ? "js-validate" : null)">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="returnUrl" data-return>
+        <div class="dialog-body">@RenderBody()</div>
+        <div class="dialog-foot" style="justify-content:@foot">@RenderSection("Footer", required: true)</div>
+    </form>
+</div>
