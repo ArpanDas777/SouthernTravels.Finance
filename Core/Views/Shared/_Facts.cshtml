@@ -1,0 +1,16 @@
+@model FactsBlock
+<div class="facts @(Model.Strip ? "facts-strip" : "") @(Model.Warn ? "facts-warn" : "")">
+    @if (Model.Title != null)
+    {
+        <div class="facts-title">@Model.Title</div>
+    }
+    <div class="facts-grid cols-@Model.Cols">
+        @foreach (var f in Model.Items)
+        {
+            <div class="min0">
+                <div class="fact-l">@f.L</div>
+                <div class="facts-v" style="color:@(f.Color ?? "var(--ink)");font-weight:@(f.Bold ? 600 : 400)">@f.V</div>
+            </div>
+        }
+    </div>
+</div>

@@ -1,112 +1,31 @@
-/* Advance Advice — printable A4 document. Colours follow the supplied "Advance Advice" layout. */
-:root {
-    --color-navy: #1A2B47;
-    --color-action-blue: #1A6BC7;
-    --color-border: #DDE1EB;
-    --color-muted: #6B7585;
-    --color-text: #1C2230;
-    --color-success: #15803D;
-    --color-danger: #DC2626;
-    --surface-readonly-field: #F8FAFC;
-    --svc-accommodation: #6366F1; --svc-accommodation-bg: #6366F118;
-    --svc-transport: #0891B2; --svc-transport-bg: #0891B218;
-    --svc-guide: #7C3AED; --svc-guide-bg: #7C3AED18;
-    --svc-enroute-meals: #059669; --svc-enroute-meals-bg: #05966918;
-    --svc-other: #B45309; --svc-other-bg: #B4530918;
-    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
+/* Standalone print pages (Advance Advice, RTGS letters, Payment Advice): the grey desk and the screen-only toolbar.
+   The document itself is styled by doc.css. */
 
-@page { size: A4; margin: 0; }
+@page { size: A4 portrait; margin: 0; }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #E5E9F0; font-family: var(--font-sans); color: var(--color-text); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #E5E9F0; font-family: "Public Sans", Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-/* screen-only toolbar */
-.toolbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: var(--color-navy); color: #fff; font-size: 13px; }
+.toolbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 10px 16px; background: #1A2B47; color: #fff; font-size: 13px; }
 .toolbar-title { font-weight: 700; }
 .toolbar-hint { color: #A9BED6; font-size: 12px; }
 .flex1 { flex: 1; }
-.tb-btn { height: 30px; padding: 0 14px; border-radius: 6px; border: 1px solid #2C517D; background: #16355A; color: #fff; font: 600 12.5px var(--font-sans); cursor: pointer; }
+.tb-btn { height: 30px; padding: 0 14px; border-radius: 6px; border: 1px solid #2C517D; background: #16355A; color: #fff; font: 600 12.5px "Public Sans", Arial, sans-serif; cursor: pointer; }
 .tb-btn:hover { background: #1D4674; }
-.tb-primary { background: var(--color-action-blue); border-color: var(--color-action-blue); }
+.tb-primary { background: #1A6BC7; border-color: #1A6BC7; }
 .tb-primary:hover { background: #14528A; }
 
-/* A4 sheet */
-.page { position: relative; width: 210mm; min-height: 297mm; margin: 20px auto; padding: 12mm 13mm 10mm; background: #fff; display: flex; flex-direction: column; box-shadow: 0 6px 24px rgba(15, 42, 74, .18); overflow: hidden; }
-.watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60%; opacity: .06; pointer-events: none; z-index: 0; }
-.page > *:not(.watermark) { position: relative; z-index: 1; }
+/* On screen the sheet sits on the desk; on small screens it keeps its A4 size and the frame scrolls sideways. */
+.sheet-scroll { overflow-x: auto; padding: 20px 12px; }
+.sheet-scroll .doc { box-shadow: 0 6px 24px rgba(15, 42, 74, .18); }
 
-.muted { color: var(--color-muted); }
-.b { font-weight: 700 !important; }
-.success { color: var(--color-success); }
-.danger { color: var(--color-danger); }
-.mt2 { margin-top: 2px; }
-.mt3 { margin-top: 3px; }
-.mt4 { margin-top: 4px; }
-
-.doc-head { display: flex; justify-content: space-between; align-items: flex-start; padding-bottom: 10px; border-bottom: 2px solid var(--color-navy); margin-bottom: 10px; }
-.company { display: flex; gap: 10px; align-items: flex-start; }
-.company-logo { height: 48px; width: 136px; object-fit: contain; }
-.company-name { font-size: 12.5px; font-weight: 700; color: var(--color-navy); }
-.company-line { font-size: 8.5px; color: var(--color-muted); line-height: 1.4; max-width: 260px; }
-.doc-meta { text-align: right; min-width: 180px; }
-.doc-title { font-size: 14px; font-weight: 800; color: var(--color-navy); letter-spacing: .02em; }
-.meta-row { font-size: 10px; }
-.meta-gen { font-size: 8px; color: var(--color-muted); margin-top: 3px; }
-
-.strip { background: var(--color-navy); color: #fff; padding: 3px 10px; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; border-radius: 4px 4px 0 0; }
-.strip-paid { display: flex; align-items: center; gap: 8px; }
-.paid-tag { background: #DCFCE7; color: var(--color-success); border-radius: 3px; padding: 0 6px; font-size: 8.5px; letter-spacing: .06em; }
-
-.box { display: grid; gap: 1px; background: var(--color-border); border: 1px solid var(--color-border); border-radius: 0 0 6px 6px; overflow: hidden; margin-bottom: 9px; }
-.cols-2 { grid-template-columns: 1fr 1fr; }
-.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
-.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
-.span-12 { grid-column: 1 / 3; }
-.span-34 { grid-column: 3 / 5; }
-.f { background: #fff; padding: 5px 10px; }
-.box.ro .f { background: var(--surface-readonly-field); padding: 5px 10px 7px; }
-.fl { font-size: 8.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--color-muted); }
-.fv { font-size: 12px; font-weight: 600; margin-top: 1px; }
-.blank { margin-top: 3px; background: #fff; border: 1px solid var(--color-border); border-radius: 4px; height: 18px; }
-.filled { margin-top: 3px; background: #fff; border: 1px solid var(--color-border); border-radius: 4px; min-height: 18px; padding: 1px 6px; font-size: 10.5px; font-weight: 600; overflow-wrap: anywhere; }
-.tds { font-weight: 400; color: var(--color-muted); font-size: 9px; }
-
-.svc { display: inline-block; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 4px; }
-.svc-accommodation { background: var(--svc-accommodation-bg); color: var(--svc-accommodation); }
-.svc-transport { background: var(--svc-transport-bg); color: var(--svc-transport); }
-.svc-guide { background: var(--svc-guide-bg); color: var(--svc-guide); }
-.svc-enroute-meals { background: var(--svc-enroute-meals-bg); color: var(--svc-enroute-meals); }
-.svc-other { background: var(--svc-other-bg); color: var(--svc-other); }
-
-.remarks { border: 1px solid var(--color-border); border-top: none; border-radius: 0 0 6px 6px; padding: 7px 10px 5px; margin-bottom: 12px; }
-.rl { border-bottom: 1px dashed var(--color-border); height: 20px; }
-.rl.last { border-bottom: 0; }
-
-.signs { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; }
-.sign-role { font-size: 9px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--color-navy); margin-bottom: 16px; }
-.sign-line { border-top: 1px solid var(--color-text); padding-top: 3px; font-size: 8.5px; color: var(--color-muted); }
-.sign-f { font-size: 9px; margin-top: 5px; }
-.sign-f.mt4 { margin-top: 4px; }
-
-/* ticket table (Payment Advice) */
-.tbl-wrap { border: 1px solid var(--color-border); border-top: none; border-radius: 0 0 6px 6px; overflow: hidden; margin-bottom: 9px; }
-.tbl { width: 100%; border-collapse: collapse; font-size: 10px; }
-.tbl th { background: #F1F4FA; color: var(--color-muted); font-size: 8.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--color-border); }
-.tbl td { padding: 5px 6px; border-bottom: 1px solid var(--color-border); vertical-align: top; background: #fff; }
-.tbl tbody tr:nth-child(even) td { background: #F6F8FB; }
-.tbl tr { break-inside: avoid; }
-.tbl .r { text-align: right; }
-.tbl .c-n { width: 22px; }
-.tbl .sub { font-size: 8.5px; color: var(--color-muted); margin-top: 1px; }
-.tbl .nowrap { white-space: nowrap; }
-.tbl tfoot td { background: #F1F4FA; font-weight: 800; color: var(--color-navy); font-size: 11px; border-top: 2px solid var(--color-navy); border-bottom: 0; }
-.strip, .box, .remarks, .signs { break-inside: avoid; }
-
+@media (max-width: 767.98px) {
+    .toolbar { flex-wrap: wrap; padding: 8px 12px; }
+    .toolbar-hint { display: none; }
+}
 @media print {
     body { background: #fff; }
     .toolbar { display: none; }
-    /* Flows onto extra A4 sheets when there are many tickets. */
-    .page { margin: 0; box-shadow: none; width: 210mm; min-height: 297mm; overflow: visible; }
-    .watermark { position: fixed; }
+    .sheet-scroll { overflow: visible; padding: 0; }
+    .sheet-scroll .doc { box-shadow: none; }
 }

@@ -5,12 +5,33 @@
     const $ = (sel, root) => (root || document).querySelector(sel);
     const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
     const returnUrl = () => location.pathname + location.search;
+    const html = document.documentElement, desktop = matchMedia('(min-width: 1280px)');
 
     /* ---------- sidebar ---------- */
     $$('[data-side-toggle]').forEach(b => b.addEventListener('click', () => {
         const closed = document.documentElement.classList.toggle('side-closed');
         try { localStorage.setItem('fin.side', closed ? 'closed' : 'open'); } catch (e) { /* storage unavailable */ }
     }));
+
+    // Desktop: clicking the main area collapses an open rail (the toggle brings it back). Tablets and phones use the drawer instead.
+    $('[data-main]').addEventListener('click', () => {
+        if (!desktop.matches || html.classList.contains('side-closed') || html.classList.contains('rail-min')) return;
+        html.classList.add('side-closed');
+        try { localStorage.setItem('fin.side', 'closed'); } catch (e) { /* storage unavailable */ }
+    });
+
+    /* ---------- drawer menu (below 1280px) ---------- */
+    const drawerBtn = $('[data-drawer-toggle]'), drawerScrim = $('[data-drawer-close]');
+    function setDrawer(open) {
+        html.classList.toggle('drawer-open', open);
+        drawerScrim.hidden = !open;
+        drawerBtn.setAttribute('aria-expanded', String(open));
+    }
+    drawerBtn.addEventListener('click', () => setDrawer(!html.classList.contains('drawer-open')));
+    drawerScrim.addEventListener('click', () => setDrawer(false));
+    $$('.side-item').forEach(a => a.addEventListener('click', () => setDrawer(false)));
+    matchMedia('(min-width: 1280px)').addEventListener('change', e => { if (e.matches) setDrawer(false); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') setDrawer(false); });
 
     /* ---------- auto-submitting controls ---------- */
     document.addEventListener('change', e => {
@@ -31,15 +52,22 @@
         search.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => search.form.submit(), 450); });
     }
 
-    /* ---------- filter panel ---------- */
-    $$('[data-filter-toggle]').forEach(b => b.addEventListener('click', () => {
-        const panel = $('[data-filters]'), fo = $('[data-fo]');
-        const open = panel.hidden;
-        panel.hidden = !open;
-        fo.value = open ? '1' : '';
-        b.classList.toggle('btn-primary', open);
-        b.setAttribute('aria-expanded', String(open));
-    }));
+    /* ---------- filter panel (inline from 1100px, bottom sheet below) ---------- */
+    const compact = matchMedia('(max-width: 1099.98px)');
+    const filters = $('[data-filters]');
+    if (filters) {
+        const filterBtn = $('.bar [data-filter-toggle]'), fo = $('[data-fo]');
+        const setFilters = open => {
+            filters.hidden = !open;
+            fo.value = open ? '1' : '';
+            filterBtn.classList.toggle('btn-primary', open);
+            filterBtn.setAttribute('aria-expanded', String(open));
+        };
+        $$('[data-filter-toggle]').forEach(b => b.addEventListener('click', () => setFilters(filters.hidden)));
+        // As a sheet, tapping the scrim (outside the panel) or pressing Esc closes it.
+        filters.addEventListener('click', e => { if (e.target === filters && compact.matches) setFilters(false); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && !filters.hidden && compact.matches) setFilters(false); });
+    }
 
     /* ---------- expandable rows ---------- */
     const seenForm = $('#seen-form');
@@ -50,8 +78,9 @@
         if (detail && detail.classList.contains('detail')) detail.hidden = !open;
         const seen = open && $('[data-seen]', tr);
         if (seen) {
-            // Payment Request: clear the "new tickets" dot once viewed.
+            // Payment Request / Approved Vendor Payable: clear the vendor's red dot once viewed.
             const body = new FormData(seenForm);
+            body.set('area', seen.dataset.area);
             body.set('vendor', seen.dataset.seen);
             fetch(seenForm.action, { method: 'POST', body }).catch(() => { });
             const dot = $('.newdot', tr);
@@ -85,22 +114,106 @@
         syncExpandAll();
     }));
 
-    /* ---------- bulk selection (Raise Bill / Submit) ---------- */
+    /* ---------- the cart (Vendor Payable: Raise Bill · Approved Vendor Payable: Submit) ---------- */
+    // Ticked services collect in the cart, grouped by vendor. The selection is kept in sessionStorage so it survives
+    // filtering, paging and the Vendor Wise / Ticket Wise tabs; a successful Raise Bill / Submit removes what it used.
+    const cart = $('[data-cart]'), pill = $('[data-cart-pill]'), main = $('[data-main]');
+    const inr = n => '₹' + Math.round(n).toLocaleString('en-IN');
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const loadCart = group => { try { return JSON.parse(sessionStorage.getItem('fin.cart.' + group)) || []; } catch (e) { return []; } };
+    const saveCart = (group, list) => { try { sessionStorage.setItem('fin.cart.' + group, JSON.stringify(list)); } catch (e) { /* storage unavailable */ } };
+
+    if (cart) {
+        const group = cart.dataset.group;
+        let items = loadCart(group), hidden = false;
+        const expanded = {};   // vendor index -> group row open
+        const boxes = () => $$('.sel-chk[data-group="' + group + '"]');
+
+        const itemOf = c => ({ id: c.value, vi: c.dataset.vi, vid: c.dataset.vid, vname: c.dataset.sub, tid: c.dataset.title, mbk: c.dataset.mbk, svc: c.dataset.svc, meta: c.dataset.meta, amt: +c.dataset.amt || 0 });
+        function remove(ids) {
+            const gone = new Set(ids);
+            items = items.filter(i => !gone.has(i.id));
+            boxes().forEach(c => { if (gone.has(c.value)) c.checked = false; });
+            saveCart(group, items);
+            render();
+        }
+        function render() {
+            const n = items.length, vendors = [...new Set(items.map(i => i.vi))], tickets = new Set(items.map(i => i.tid)).size;
+            const visible = n > 0 && !hidden;
+            cart.classList.toggle('is-empty', n === 0);
+            cart.classList.toggle('is-hidden', hidden);
+            pill.classList.toggle('is-on', n > 0 && hidden);
+            $('[data-cart-pill-n]', pill).textContent = n;
+            // desktop: the rail steps aside while the cart is open; compact: leave room above the bottom sheet
+            html.classList.toggle('rail-min', visible && desktop.matches);
+            html.classList.toggle('cart-open', visible && !compact.matches);   // makes room for the full-height side panel
+            main.style.paddingBottom = visible && compact.matches ? '300px' : '';
+            if (n === 0) return;
+            $('[data-cart-sub]', cart).textContent = n + ' service(s) · ' + tickets + ' ticket(s) · ' + vendors.length + ' vendor(s)';
+            $('[data-cart-total-label]', cart).textContent = cart.dataset.totalLabel;
+            $('[data-cart-total]', cart).textContent = inr(items.reduce((a, i) => a + i.amt, 0));
+            $('[data-cart-go]', cart).textContent = cart.dataset.label + ' (' + n + ')';
+            $('[data-cart-list]', cart).replaceChildren(...vendors.flatMap(vi => {
+                const mine = items.filter(i => i.vi === vi), open = !!expanded[vi];
+                const row = el('div', 'cart-grp'), name = el('div', 'cart-grp-name', mine[0].vname), x = el('button', 'cart-x', '✕');
+                const main1 = el('div'), meta = el('div', 'cart-grp-meta', new Set(mine.map(i => i.tid)).size + ' ticket(s) · ' + mine.length + ' service(s)');
+                name.append(el('span', 'cart-grp-id', mine[0].vid));
+                main1.append(name, meta);
+                x.type = 'button'; x.setAttribute('aria-label', 'Remove all of this vendor');
+                x.addEventListener('click', e => { e.stopPropagation(); remove(mine.map(i => i.id)); });
+                row.append(el('span', 'cart-chev', open ? '▼' : '▶'), main1, el('span', 'cart-grp-amt', inr(mine.reduce((a, i) => a + i.amt, 0))), x);
+                row.addEventListener('click', () => { expanded[vi] = !open; render(); });
+                return [row, ...(open ? mine.map(i => {
+                    const it = el('div', 'cart-item'), t = el('div', 'cart-item-t', i.tid), rm = el('button', 'cart-x', '✕');
+                    t.append(el('span', 'cart-item-mbk', i.mbk));
+                    rm.type = 'button'; rm.setAttribute('aria-label', 'Remove ' + i.tid);
+                    rm.addEventListener('click', () => remove([i.id]));
+                    it.append(t, el('span', 'cart-item-amt', inr(i.amt)), rm, el('div', 'cart-item-svc', i.svc), el('div', 'cart-item-meta', i.meta));
+                    return it;
+                }) : [])];
+            }));
+        }
+        function openSelection() {
+            if (items.length) openPopup(cart.dataset.popType + '&ids=' + encodeURIComponent(items.map(i => i.id).join(',')));
+        }
+
+        document.addEventListener('change', e => {
+            const c = e.target;
+            if (!c.matches('.sel-chk') || c.dataset.group !== group) return;
+            items = items.filter(i => i.id !== c.value);
+            if (c.checked) items.push(itemOf(c));
+            saveCart(group, items);
+            render();
+        });
+        $('[data-cart-go]', cart).addEventListener('click', openSelection);
+        $('[data-cart-clear]', cart).addEventListener('click', () => remove(items.map(i => i.id)));
+        $('[data-cart-hide]', cart).addEventListener('click', () => { hidden = true; render(); });
+        pill.addEventListener('click', () => { hidden = false; render(); });
+        compact.addEventListener('change', render);
+        desktop.addEventListener('change', render);
+
+        // restore the ticks of what is already in the cart
+        const ids = new Set(items.map(i => i.id));
+        boxes().forEach(c => { if (ids.has(c.value)) c.checked = true; });
+        render();
+    }
+
+    // Vendor Payable has no cart: ticking services shows a bulk "Raise Bill (n)" button in the toolbar.
     const selBtn = $('[data-sel-btn]');
-    function selected() {
-        return selBtn ? $$('.sel-chk[data-group="' + selBtn.dataset.group + '"]:checked').map(c => c.value) : [];
+    if (selBtn) {
+        const ticked = () => [...new Set($$('.sel-chk[data-group="' + selBtn.dataset.group + '"]:checked').map(c => c.value))];
+        const syncBulk = () => {
+            const n = ticked().length;
+            selBtn.hidden = n === 0;
+            selBtn.textContent = selBtn.dataset.label + ' (' + n + ')';
+        };
+        document.addEventListener('change', e => { if (e.target.matches('.sel-chk')) syncBulk(); });
+        selBtn.addEventListener('click', () => {
+            const ids = ticked();
+            if (ids.length) openPopup(selBtn.dataset.popType + '&ids=' + encodeURIComponent(ids.join(',')));
+        });
+        syncBulk();
     }
-    function syncSel() {
-        if (!selBtn) return;
-        const ids = [...new Set(selected())];
-        selBtn.hidden = ids.length === 0;
-        selBtn.textContent = selBtn.dataset.label + ' (' + ids.length + ')';
-    }
-    document.addEventListener('change', e => { if (e.target.matches('.sel-chk')) syncSel(); });
-    if (selBtn) selBtn.addEventListener('click', () => {
-        const ids = [...new Set(selected())];
-        if (ids.length) openPopup('/Finance/Popup?t=' + selBtn.dataset.popType + '&ids=' + encodeURIComponent(ids.join(',')));
-    });
 
     /* ---------- toasts ---------- */
     const toast = $('#toast');
@@ -194,12 +307,27 @@
                 if (star) star.hidden = !req;
                 i.setAttribute('aria-required', String(req));
             });
-            const ok = fields.filter(isRequired).every(i => i.type === 'file' ? i.files.length > 0 : i.value.trim() !== '');
+            let ok = fields.filter(isRequired).every(i => i.type === 'file' ? i.files.length > 0 : i.value.trim() !== '');
+            // Create RTGS Advice: at least one ticket must be ticked; the button shows how many.
+            const ticks = $$('[data-rtgs-check]', form);
+            if (ticks.length) {
+                const n = ticks.filter(c => c.checked).length;
+                ok = ok && n > 0;
+                $$('[data-needs-checked]', form).forEach(b => { b.textContent = 'Submit (' + n + ')'; });
+            }
             $$('[data-needs-valid]', form).forEach(b => { b.disabled = !ok; });
+            // Raise Bill: a per-service button only needs that service's own fields.
+            $$('[data-needs-svc]', form).forEach(b => {
+                b.disabled = !fields.filter(i => i.dataset.svc === b.dataset.needsSvc && isRequired(i))
+                    .every(i => i.type === 'file' ? i.files.length > 0 : i.value.trim() !== '');
+            });
         };
         form.addEventListener('input', validate);
         form.addEventListener('change', e => {
             const el = e.target;
+            if (el.matches('[data-check-all]')) $$('[data-rtgs-check]', form).forEach(c => { c.checked = el.checked; });
+            // the select-all box mirrors the rows
+            if (el.matches('[data-rtgs-check]')) $('[data-check-all]', form).checked = $$('[data-rtgs-check]', form).every(c => c.checked);
             if (el.matches('[data-file]')) {
                 const fld = el.closest('.fld'), stamp = fld && fld.nextElementSibling && $('[data-file-stamp]', fld.nextElementSibling);
                 $('[data-file-text]', fld).textContent = el.files.length ? el.files[0].name + ' selected' : '';
@@ -226,10 +354,21 @@
                 validate();
             });
         }
-        form.addEventListener('submit', () => { $$('button[type=submit]', form).forEach(b => { setTimeout(() => { b.disabled = true; }, 0); }); });
+        form.addEventListener('submit', () => {
+            // A Raise Bill / Submit that came from the cart takes its services out of the stored cart.
+            const m = /clear-cart-(\w+)/.exec(form.className);
+            if (m) {
+                const used = [...$$('input[name=ids]', form).flatMap(i => i.value.split(',')), ...$$('input[name$=".Sid"]', form).map(i => i.value)];
+                saveCart(m[1], loadCart(m[1]).filter(i => !used.includes(i.id)));
+            }
+            $$('button[type=submit]', form).forEach(b => { setTimeout(() => { b.disabled = true; }, 0); });
+        });
         validate();
     }
 
     syncExpandAll();
-    syncSel();
+
+    // A pop-up the server asked for (e.g. "RTGS Advice generated" right after creating an advice).
+    const auto = $('#auto-popup');
+    if (auto) openPopup(auto.dataset.url);
 })();

@@ -1,0 +1,134 @@
+/* Printable documents (Advance Advice, RTGS letters, Payment Advice): portrait A4, black on white.
+   Built to stay readable on a black-and-white printer: pure black text, solid borders instead of coloured fills,
+   no white-on-dark headings (they disappear when "background graphics" is off), no colour-only meaning. */
+
+.doc, .doc * { box-sizing: border-box; }
+.doc { background: #fff; color: #000; font-family: "Public Sans", Arial, Helvetica, sans-serif; font-size: 12px; line-height: 1.45;
+    width: 210mm; min-height: 297mm; margin: 0 auto; padding: 12mm 13mm 10mm; display: flex; flex-direction: column;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.doc p { margin: 0 0 8px; }
+.doc-frame { overflow-x: auto; }
+
+.doc .b { font-weight: 700; }
+.doc .muted { color: #333; }
+.doc .mt2 { margin-top: 2px; }
+.doc .mt3 { margin-top: 3px; }
+.doc .mt4 { margin-top: 4px; }
+
+/* header: company on the left, document title and references on the right, a heavy black rule underneath */
+.doc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-bottom: 10px; border-bottom: 3px solid #000; margin-bottom: 12px; }
+.doc-company { display: flex; gap: 10px; align-items: flex-start; }
+.doc-logo { height: 46px; width: 130px; object-fit: contain; filter: grayscale(1) contrast(1.5); }
+.doc-company-name { font-size: 13px; font-weight: 800; }
+.doc-company-line { font-size: 10.5px; color: #333; line-height: 1.4; max-width: 250px; }
+.doc-meta { text-align: right; min-width: 190px; }
+.doc-title { font-size: 17px; font-weight: 800; letter-spacing: .04em; }
+.doc-meta-row { font-size: 11px; }
+.doc-meta-row strong { font-weight: 800; }
+.doc-gen { font-size: 10.5px; color: #333; margin-top: 3px; }
+
+/* section heading: bold caps between two rules, not a coloured bar */
+.doc .strip { margin-top: 12px; padding: 3px 0; border-top: 2px solid #000; border-bottom: 1px solid #000; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+.doc .strip-paid .paid-tag { border: 1.5px solid #000; padding: 0 6px; font-size: 10.5px; letter-spacing: .06em; }
+
+/* label/value grid: every cell is boxed */
+.doc .box { display: grid; border-left: 1px solid #000; border-top: 1px solid #000; margin-bottom: 4px; }
+.doc .cols-2 { grid-template-columns: 1fr 1fr; }
+.doc .cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.doc .cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.doc .span-12 { grid-column: 1 / 3; }
+.doc .span-34 { grid-column: 3 / 5; }
+.doc .span-all { grid-column: 1 / -1; }
+.doc .f { padding: 5px 8px 6px; border-right: 1px solid #000; border-bottom: 1px solid #000; min-width: 0; }
+.doc .fl { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #333; }
+.doc .fv { font-size: 12.5px; font-weight: 700; margin-top: 1px; overflow-wrap: anywhere; }
+.doc .blank { margin-top: 3px; border: 1px solid #000; height: 22px; }
+.doc .filled { margin-top: 3px; border: 1px solid #000; min-height: 22px; padding: 2px 6px; font-size: 11.5px; font-weight: 700; overflow-wrap: anywhere; }
+.doc .tds { font-weight: 400; color: #333; font-size: 10.5px; }
+.doc .svc { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; border: 1px solid #000; }
+
+/* writing lines and signatures */
+.doc .remarks { border: 1px solid #000; margin-top: 0; padding: 4px 8px 2px; margin-bottom: 12px; }
+.doc .rl { border-bottom: 1px solid #000; height: 24px; }
+.doc .rl.last { border-bottom: 0; }
+.doc-signs { display: grid; grid-template-columns: repeat(var(--n, 4), 1fr); gap: 14px; margin-top: auto; padding-top: 18px; }
+.doc-sign-role { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.doc-sign-line { margin-top: 30px; border-top: 1.5px solid #000; padding-top: 3px; font-size: 10.5px; color: #333; }
+.doc-sign-f { font-size: 11px; margin-top: 6px; }
+
+/* letters: address, subject, body */
+.doc .doc-to { margin-bottom: 10px; }
+.doc .doc-subject { font-weight: 800; margin: 6px 0 10px; }
+.doc .doc-text { margin-bottom: 10px; }
+.doc .doc-closing { margin: 14px 0 10px; }
+
+/* tables: ruled grid, bold header with a heavier rule, bold total row */
+.doc-table { width: 100%; border-collapse: collapse; font-size: 11.5px; margin-top: 8px; }
+.doc-table th { text-align: left; padding: 5px 6px; font-size: 10.5px; font-weight: 800; letter-spacing: .03em; text-transform: uppercase; border: 1px solid #000; border-bottom: 2px solid #000; }
+.doc-table td { padding: 6px; border: 1px solid #000; vertical-align: top; }
+.doc-table .r { text-align: right; font-variant-numeric: tabular-nums; }
+.doc-table .nw { white-space: nowrap; }
+.doc-table .c-n { width: 26px; }
+.doc-table .sub { font-size: 10.5px; color: #333; }
+.doc-table tfoot td { font-weight: 800; border-top: 2px solid #000; font-size: 12px; }
+.doc-table tr, .doc .strip, .doc .box, .doc .remarks, .doc-signs { break-inside: avoid; }
+
+@media print {
+    .doc { margin: 0; width: 210mm; min-height: 297mm; }
+}
+
+/* ---------- colour variant (.doc.color): navy and blue accents like the supplied Advance Advice layout.
+   Contrast stays strong and every box keeps a solid border, so it still reads clearly on a black-and-white printout. ---------- */
+.doc.color .doc-logo { filter: none; }
+.doc.color .doc-head { border-bottom-color: #1A2B47; }
+.doc.color .doc-company-name, .doc.color .doc-title, .doc.color .doc-sign-role { color: #1A2B47; }
+.doc.color .strip { background: #1A2B47; color: #fff; border: 0; padding: 4px 10px; border-radius: 4px 4px 0 0; }
+.doc.color .doc-subject { color: #1A2B47; }
+.doc.color .box { border-color: #8FA1BC; }
+.doc.color .f { border-color: #8FA1BC; }
+.doc.color .fl { color: #3B4A63; }
+.doc.color .doc-table th { background: #E3EDFA; color: #1A2B47; border-color: #6F86A8; border-bottom: 2px solid #1A2B47; }
+.doc.color .doc-table td { border-color: #8FA1BC; }
+.doc.color .doc-table tbody tr:nth-child(even) td { background: #F4F8FD; }
+.doc.color .doc-table tfoot td { background: #E3EDFA; color: #1A2B47; border-top: 2px solid #1A2B47; }
+.doc.color .doc-sign-line { border-top-color: #1A2B47; }
+
+/* the RTGS table has ten columns, so it uses a fixed layout, tighter cells and slightly narrower page margins */
+.doc.doc-wide { padding-left: 9mm; padding-right: 9mm; }
+.doc-table.rtgs { table-layout: fixed; font-size: 10.5px; }
+.doc-table.rtgs th, .doc-table.rtgs td { padding: 4px 4px; overflow-wrap: anywhere; }
+.doc-table.rtgs th { font-size: 10px; letter-spacing: 0; overflow-wrap: normal; }
+
+/* colour variant: the full Advance Advice look (service-type pills, green/red amounts, soft read-only fields, zebra rows) */
+.doc.color .box { border-radius: 0 0 6px 6px; }
+.doc.color .box.ro .f { background: #F8FAFC; }
+.doc.color .blank, .doc.color .filled { background: #fff; border-color: #8FA1BC; border-radius: 4px; }
+.doc.color .svc { border: 0; border-radius: 4px; padding: 1px 8px; }
+.doc.color .svc-accommodation { background: #6366F118; color: #4338CA; }
+.doc.color .svc-transport { background: #0891B218; color: #0E7490; }
+.doc.color .svc-guide { background: #7C3AED18; color: #6D28D9; }
+.doc.color .svc-enroute-meals { background: #05966918; color: #047857; }
+.doc.color .svc-other { background: #B4530918; color: #92400E; }
+.doc.color .success { color: #15803D; }
+.doc.color .danger { color: #B91C1C; }
+.doc.color .strip-paid .paid-tag { background: #DCFCE7; color: #15803D; border: 0; border-radius: 3px; }
+
+/* six fields on one line (Advance Advice), and the reference strip above the first section */
+.doc .cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.doc .cols-6 .fl { font-size: 9.5px; letter-spacing: .02em; }
+.doc .cols-6 .fv { font-size: 12px; }
+.doc .refs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 4px; font-size: 11.5px; }
+.doc .refs .fl { display: block; }
+.doc .refs strong { font-weight: 800; }
+.doc-foot { margin-top: 10px; padding-top: 4px; border-top: 1px solid #000; font-size: 10.5px; color: #333; text-align: right; }
+.doc .cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.doc .cols-5 .fl { font-size: 9.5px; letter-spacing: .02em; }
+
+/* Payment Advice: status badge (always spelled out, so it reads without colour) and a table that sits under its strip */
+.doc .doc-to-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.doc .doc-status { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 1px 8px; border: 1.5px solid #000; white-space: nowrap; }
+.doc.color .doc-status { border-radius: 4px; border-width: 1px; }
+.doc.color .st-paid { background: #DCFCE7; color: #15803D; border-color: #15803D; }
+.doc.color .st-pending { background: #FEF3C7; color: #92400E; border-color: #B45309; }
+.doc-table-flush { margin-top: 0; }
+.doc.color .doc-table-flush th:first-child, .doc.color .doc-table-flush td:first-child { border-left-color: #8FA1BC; }

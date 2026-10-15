@@ -1,0 +1,34 @@
+@model VendorBillsVm
+@{
+    Layout = "_Modal";
+    ViewData["Title"] = "Vendor Bills";
+    ViewData["Sub"] = Model.Vendor.Id + " · " + Model.Vendor.Name;
+    ViewData["Width"] = 720;
+}
+<div class="tbl-scroll">
+<table class="pop-table">
+    <thead>
+        <tr>
+            <th>Ticket</th><th>Service</th><th>Bill No.</th><th>Bill Date</th><th>Document</th>
+            <th class="al-right">Amount as per Invoice</th><th class="al-right">Recommended Amt.</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var s in Model.Services)
+        {
+            <tr>
+                <td><div class="b link-ink">@s.T.Id</div><div class="pop-sub">@s.T.Mbk</div></td>
+                <td>@s.Name</td>
+                <td>@s.Bill!.No</td>
+                <td>@Fmt.Fd(s.Bill.Date)</td>
+                <td class="faint">@s.Bill.Doc</td>
+                <td class="al-right">@Fmt.Inr(s.Bill.Inv)</td>
+                <td class="al-right b">@Fmt.Inr(s.Bill.Rec)</td>
+            </tr>
+        }
+    </tbody>
+</table>
+</div>
+@section Footer {
+    <button type="button" class="btn" data-close>Close</button>
+}
