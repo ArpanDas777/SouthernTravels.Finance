@@ -1,0 +1,120 @@
+@{
+    var ctx = (LayoutCtx)ViewData["Ctx"]!;
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@ViewData["Title"] · Southern Travels @ctx.AreaName</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Public+Sans:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/doc.css" asp-append-version="true">
+    <script>try { if (localStorage.getItem('fin.side') === 'closed') document.documentElement.classList.add('side-closed'); } catch (e) { }</script>
+</head>
+<body>
+    <div class="app">
+        <header class="topbar">
+            @* Below 1280px the menu is an overlay drawer opened from here. *@
+            <button type="button" class="menu-btn" data-drawer-toggle aria-label="Menu" aria-controls="side-menu" aria-expanded="false">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            </button>
+            <img src="~/img/logo-southern.png" alt="Southern Travels" class="topbar-logo">
+            <span class="topbar-title"><span class="t-brand">Southern Travels</span><span class="t-prod">@ctx.AreaName</span></span>
+            <span class="flex1"></span>
+            <label class="topbar-search">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                <input placeholder="Search voucher, vendor, bill…" aria-label="Search">
+            </label>
+            <span class="topbar-bell" aria-label="Notifications">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+                <span class="topbar-badge">3</span>
+            </span>
+            @* Prototype only: lets you try the three demo users. *@
+            <form method="post" action="/Session/SetUser" class="m0">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@returnUrl">
+                <select name="user" aria-label="Switch demo user" class="user-switch" data-autosubmit>
+                    <option value="" disabled selected>Switch user</option>
+                    <option value="admin">Admin User</option>
+                    <option value="mounika">Mounika</option>
+                    <option value="vijay">Vijay Gupta</option>
+                </select>
+            </form>
+        </header>
+
+        <div class="frame">
+            <div class="drawer-scrim" data-drawer-close hidden></div>
+            <aside class="side" id="side-menu">
+                <button type="button" class="side-toggle" data-side-toggle aria-label="Collapse or expand menu"><span class="when-open">«</span><span class="when-closed">»</span></button>
+                <div class="side-label"><span class="when-open">@ctx.AreaName</span><span class="when-closed">@ctx.AreaShort</span></div>
+                <nav class="side-nav">
+                    @foreach (var n in ctx.Nav)
+                    {
+                        <a href="@n.Url" title="@n.Label" class="side-item @(ctx.Page == n.Controller ? "active" : "")" aria-current="@(ctx.Page == n.Controller ? "page" : null)">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="@n.Icon"></path></svg>
+                            <span class="side-text when-open">@n.Label</span>
+                        </a>
+                    }
+                </nav>
+                <div class="side-user" title="@ctx.UserName · @ctx.UserRole">
+                    <span class="avatar">@ctx.UserName[0]</span>
+                    <div class="who when-open">
+                        <div class="who-name">@ctx.UserName</div>
+                        <div class="who-role">@ctx.UserRole</div>
+                    </div>
+                </div>
+            </aside>
+
+            <div class="content">
+                <main class="main" data-main>
+                    <form method="post" action="/Session/SetPeriod" class="bar m0" id="period-form">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="returnUrl" value="@returnUrl">
+                        <span class="bar-label">Period</span>
+                        <select name="k" class="ctl ctl-28" data-autosubmit>
+                            @foreach (var k in DemoSession.PeriodKinds)
+                            {
+                                <option value="@k" selected="@(k == ctx.PeriodKind)">@k</option>
+                            }
+                        </select>
+                        @if (ctx.PeriodKind == "Custom")
+                        {
+                            <input type="date" name="from" value="@ctx.PeriodFrom" class="ctl ctl-28 num" data-autosubmit aria-label="Period from">
+                            <span class="faint">→</span>
+                            <input type="date" name="to" value="@ctx.PeriodTo" class="ctl ctl-28 num" data-autosubmit aria-label="Period to">
+                        }
+                        else
+                        {
+                            <input type="hidden" name="from" value="@ctx.PeriodFrom">
+                            <input type="hidden" name="to" value="@ctx.PeriodTo">
+                        }
+                        @if (ctx.PeriodText != null)
+                        {
+                            <span class="period-info">Filtering by @ctx.PeriodField @ctx.PeriodText</span>
+                            <button type="button" class="btn btn-sm btn-ghost" data-period-clear>Clear</button>
+                        }
+                    </form>
+
+                    @RenderBody()
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-root" class="scrim" hidden></div>
+    <div id="tip" class="tip" hidden></div>
+    @if (ctx.SeenUrl != null) { <form id="seen-form" method="post" action="@ctx.SeenUrl" hidden>@Html.AntiForgeryToken()</form> }
+    @if (ctx.AutoPopup != null)
+    {
+        @* Opened by site.js on load, e.g. "RTGS Advice generated" right after creating an advice. *@
+        <div id="auto-popup" data-url="@ctx.AutoPopup" hidden></div>
+    }
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+</body>
+</html>

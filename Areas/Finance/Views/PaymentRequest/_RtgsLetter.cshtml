@@ -1,0 +1,7 @@
+@model RtgsLetterVm
+@* The RTGS letter as it appears in the pop-up: the full A4 sheet (header, body, signatures). The PDF page builds the same from _AdviceLayout. *@
+<section class="doc color doc-wide">
+    <partial name="_DocHead" model="@Model.Head" />
+    <partial name="_RtgsLetterBody" model="Model" />
+    <partial name="_DocSigns" model="@(new[] { "Prepared by", "Finance Head", "Authorised Signatory" })" />
+</section>

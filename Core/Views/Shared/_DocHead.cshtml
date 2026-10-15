@@ -1,0 +1,21 @@
+@model DocHead
+<div class="doc-head">
+    <div class="doc-company">
+        <img src="~/img/logo-southern.png" alt="Southern Travels" class="doc-logo">
+        <div>
+            <div class="doc-company-name">Southern Travels Private Limited</div>
+            <div class="doc-company-line">Registered Address: [Address line 1, City, State, PIN], India</div>
+            <div class="doc-company-line">GSTIN: [GSTIN Number] &nbsp;|&nbsp; Phone: [Phone] &nbsp;|&nbsp; Email: [Email]</div>
+        </div>
+    </div>
+    <div class="doc-meta">
+        <div class="doc-title">@Model.Title</div>
+        <div class="mt3">
+            @foreach (var (k, v) in Model.Rows)
+            {
+                <div class="doc-meta-row">@k: <strong>@v</strong></div>
+            }
+        </div>
+        @if (Model.Generated != "") { <div class="doc-gen">Generated: @Model.Generated</div> }
+    </div>
+</div>

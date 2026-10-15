@@ -1,0 +1,161 @@
+using Microsoft.AspNetCore.Mvc;
+using SouthernTravels.Areas.Finance.Data;
+using SouthernTravels.Areas.Finance.Models;
+using SouthernTravels.Core.Infrastructure;
+
+namespace SouthernTravels.Areas.Finance.Controllers;
+
+/// <summary>Payment Request Report: payments per ticket line, Payment Advice, Update payment and RTGS advice (create, history, letters, payment status).</summary>
+[Route("Finance/PaymentRequest")]
+public class PaymentRequestController(FinanceStore store) : FinanceControllerBase(store)
+{
+    [HttpGet("")]
+    public IActionResult Index() => Report("PaymentRequest", "Bill Date", r => r.PaymentRequest());
+
+    /* ---------- popups ---------- */
+
+    [HttpGet("Popup")]
+    public IActionResult Popup(string t, string? sid, string? no, string? kind, int hist)
+    {
+        var all = St.Svcs();
+        if (t is "prpay" or "rtgsSel" or "rtgsPay" && !Ctx.Perm) return Forbidden();
+        switch (t)
+        {
+            case "rtgsSel":
+            {
+                var pool = St.RtgsPool().Select(b => all.First(s => s.Id == b.Sid)).OrderBy(s => s.Vi).ThenBy(s => s.Ti).ToList();
+                return View("Popups/RtgsSelect", new RtgsSelVm(pool, FinanceOptions.SenderBanks));
+            }
+            case "rtgsOut":
+            {
+                var rec = FindRtgs(no);
+                if (rec == null) return NotFound();
+                var rows = LetterRows(rec, all);
+                return View("Popups/RtgsOut", new RtgsOutVm(rec, rows.Count, rows.Select(r => r.BenName).Distinct().Count(), rows.Sum(r => r.Amount)));
+            }
+            case "rtgsHist":
+            {
+                List<RtgsRecord> log;
+                lock (St.Gate) log = St.RtgsLog.AsEnumerable().Reverse().ToList();
+                return View("Popups/RtgsHistory", new RtgsHistVm(log.Select(r =>
+                {
+                    var rows = LetterRows(r, all);
+                    return new RtgsHistRow(r, rows.Count, rows.Select(x => x.BenName).Distinct().Count(), rows.Sum(x => x.Amount), PendingRtgs(r, all).Count);
+                }).ToList(), Ctx.Perm));
+            }
+            case "rtgsPay":
+            {
+                var rec = FindRtgs(no);
+                var open = rec == null ? [] : PendingRtgs(rec, all);
+                return rec == null || open.Count == 0 ? NotFound() : View("Popups/RtgsPayment", new RtgsPayVm(rec, open.Count, open.Sum(s => s.Bill?.Rec ?? 0), Ctx.UserName));
+            }
+            case "rtgsView":
+            {
+                var rec = FindRtgs(no);
+                return rec == null ? NotFound()
+                    : View("Popups/RtgsLetter", new RtgsLetterVm(rec, kind == "bank", hist == 1, Fmt.Dmy(rec.At), LetterRows(rec, all)));
+            }
+            case "prAdvice":
+            {
+                var vm = BuildPrAdvice(all, sid);
+                return vm == null ? NotFound() : View("Popups/PaymentAdvice", vm);
+            }
+            case "prpay":
+            {
+                var s = all.FirstOrDefault(x => x.Id == sid);
+                return s?.Bk == null || s.Bk.Paid ? NotFound() : View("Popups/PaymentRequestPay", new PrPayVm(s, Ctx.UserName));
+            }
+            default: return NotFound();
+        }
+    }
+
+    /* ---------- printable documents ---------- */
+
+    /// <summary>Payment Advice for one ticket line in the payment basket; null when the service isn't there.</summary>
+    PrAdviceVm? BuildPrAdvice(List<Svc> all, string? sid)
+    {
+        var s = all.FirstOrDefault(x => x.Id == sid);
+        if (s?.Bk == null) return null;
+        // "service no." = the service's position within its ticket
+        var serviceNo = all.Where(x => x.Ti == s.Ti).ToList().FindIndex(x => x.Id == s.Id) + 1;
+        return new PrAdviceVm(s, s.Bk, "PA-" + s.T.Id + "-" + serviceNo, Fmt.Dmy(Clock.Today));
+    }
+
+    /// <summary>Printable Payment Advice (portrait A4) for one ticket line. Opens in a new tab from the pop-up's Print button.</summary>
+    [HttpGet("PaymentAdvicePdf")]
+    public IActionResult PaymentAdvicePdf(string sid)
+    {
+        var vm = BuildPrAdvice(St.Svcs(), sid);
+        return vm == null ? NotFound() : View("PaymentAdvicePdf", vm);
+    }
+
+    /// <summary>Printable RTGS letter (A4) for one advice — Internal or Bank. Opens in a new tab; "Download PDF" is the print dialog's Save as PDF.</summary>
+    [HttpGet("RtgsPdf")]
+    public IActionResult RtgsPdf(string no, string kind)
+    {
+        var rec = FindRtgs(no);
+        return rec == null ? NotFound() : View("RtgsPdf", new RtgsLetterVm(rec, kind == "bank", false, Fmt.Dmy(rec.At), LetterRows(rec, St.Svcs())));
+    }
+
+    RtgsRecord? FindRtgs(string? no)
+    {
+        lock (St.Gate) return St.RtgsLog.FirstOrDefault(r => r.No == no);
+    }
+
+    /// <summary>Services of an RTGS advice whose payment has not been recorded yet.</summary>
+    static List<Svc> PendingRtgs(RtgsRecord rec, List<Svc> all) =>
+        rec.Sids.Select(sid => all.First(s => s.Id == sid)).Where(s => s.Bk is { Paid: false }).ToList();
+
+    /// <summary>One letter line per service in the advice, in vendor order. Sender account numbers are placeholders until real ones are supplied.</summary>
+    List<RtgsLetterRow> LetterRows(RtgsRecord rec, List<Svc> all) =>
+        rec.Sids.Select(sid => all.First(s => s.Id == sid)).OrderBy(s => s.Vi).ThenBy(s => s.Ti)
+            .Select((s, i) => new RtgsLetterRow(i + 1, rec.Common.SenderBank + " [A/c No.]", rec.Common.ChequeNo, rec.Common.RandomNo,
+                Fmt.Fd(rec.Common.ChequeDate), St.K[s.Vi].Acc, St.K[s.Vi].Ifsc, s.Bill?.Rec ?? 0, s.V.Name, rec.Common.Remarks ?? "")).ToList();
+
+    /* ---------- actions ---------- */
+
+    /// <summary>Creates an RTGS advice from the tickets ticked in "Create RTGS Advice", then opens "RTGS Advice generated".</summary>
+    [HttpPost("CreateRtgs")]
+    public IActionResult CreateRtgs(string[]? sid, string? senderBank, string? chequeNo, string? chequeDate, string? randomNo, string? remarks, string? returnUrl)
+    {
+        if (!Ctx.Perm) return Forbidden();
+        var idSet = (sid ?? []).ToHashSet();
+        var ok = FinanceOptions.SenderBanks.Contains(senderBank ?? "") && !string.IsNullOrWhiteSpace(chequeNo) && !string.IsNullOrWhiteSpace(randomNo)
+            && DateTime.TryParseExact(chequeDate, "yyyy-MM-dd", Fmt.Inv, System.Globalization.DateTimeStyles.None, out _);
+        if (!ok || idSet.Count == 0) return Back(returnUrl, "RTGS advice not created — fill every required field and choose at least one ticket.");
+        var rec = St.CreateRtgs(idSet, new RtgsCommon
+        {
+            SenderBank = senderBank!, ChequeNo = chequeNo!.Trim(), ChequeDate = chequeDate!, RandomNo = randomNo!.Trim(),
+            Remarks = string.IsNullOrWhiteSpace(remarks) ? null : remarks.Trim(),
+        }, Ctx.UserName);
+        if (rec == null) return Back(returnUrl, "Those tickets are already covered by an RTGS advice.");
+        TempData["popup"] = "/Finance/PaymentRequest/Popup?t=rtgsOut&no=" + Uri.EscapeDataString(rec.No);
+        return Back(returnUrl, "RTGS advice " + rec.No + " created.");
+    }
+
+    [HttpPost("PaymentPay")]
+    public IActionResult PaymentPay(string sid, string? bank, string? mode, string? utr, string? chequeNo,
+        string? paymentDate, decimal? amountPaid, IFormFile? slip, string? returnUrl)
+    {
+        if (!Ctx.Perm) return Forbidden();
+        if (string.IsNullOrWhiteSpace(bank) || string.IsNullOrWhiteSpace(mode) || !PaymentRefOk(mode, utr, chequeNo) || !ValidPaymentDate(paymentDate) || amountPaid is not > 0 || slip is null)
+            return Back(returnUrl, "Payment not saved — every field is required.");
+        St.PayRequest(sid, Ctx.UserName, bank.Trim(), mode, utr?.Trim(), chequeNo?.Trim(), paymentDate!, (int)amountPaid.Value, Path.GetFileName(slip.FileName));
+        return Back(returnUrl, "Payment recorded.");
+    }
+
+    /// <summary>Update Payment Status from RTGS Advice History: one set of payment details for every unpaid ticket in the advice.</summary>
+    [HttpPost("RtgsPay")]
+    public IActionResult RtgsPay(string no, string? bank, string? mode, string? utr, string? chequeNo,
+        string? paymentDate, IFormFile? slip, string? returnUrl)
+    {
+        if (!Ctx.Perm) return Forbidden();
+        var rec = FindRtgs(no);
+        if (rec == null || string.IsNullOrWhiteSpace(bank) || string.IsNullOrWhiteSpace(mode) || !PaymentRefOk(mode, utr, chequeNo) || !ValidPaymentDate(paymentDate) || slip is null)
+            return Back(returnUrl, "Payment not saved — every field is required.");
+        var all = St.Svcs();
+        var n = St.PayRtgs(no, Ctx.UserName, bank.Trim(), mode, utr?.Trim(), chequeNo?.Trim(), paymentDate!, Path.GetFileName(slip.FileName),
+            sid => all.First(s => s.Id == sid).Bill?.Rec ?? 0);
+        return Back(returnUrl, n + " payment(s) recorded for " + no + ".");
+    }
+}

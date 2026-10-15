@@ -1,0 +1,21 @@
+@model PrAdviceVm
+@{
+    Layout = "_Modal";
+    var s = Model.S;
+    ViewData["Title"] = "Payment Advice";
+    ViewData["Sub"] = Model.AdviceNo + " · " + s.T.Id + " · " + s.V.Name;
+    ViewData["Width"] = 900;
+}
+@* Portrait A4 letter, black on white; the frame scrolls sideways on small screens and the letter is never reflowed. *@
+<div class="doc-frame">
+    <section class="doc color">
+        <partial name="_DocHead" model="@Model.Head" />
+        <partial name="_PaymentAdviceBody" model="Model" />
+        <partial name="_DocSigns" model="@(new[] { "Prepared by", "Finance Head" })" />
+    </section>
+</div>
+@section Footer {
+    <button type="button" class="btn" data-close>Close</button>
+    @* Print opens the same letter on its own page; Download PDF there is the print dialog's Save as PDF. *@
+    <a class="btn btn-primary" href="/Finance/PaymentRequest/PaymentAdvicePdf?sid=@s.Id" target="_blank" rel="noopener">Print</a>
+}

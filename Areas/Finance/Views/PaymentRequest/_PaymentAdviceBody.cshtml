@@ -1,0 +1,61 @@
+@model PrAdviceVm
+@* Payment Advice body (portrait A4, colour variant) for one ticket line, addressed to the vendor. *@
+@{
+    var s = Model.S; var b = Model.B;
+    var amount = s.Bill?.Rec ?? 0;
+    // Paid shows the mode actually used; otherwise the mode chosen at submission.
+    var mode = b.Paid ? (b.Mode ?? b.Pm ?? "RTGS") : (b.Pm ?? "RTGS");
+}
+<div class="doc-to-row">
+    <p class="doc-to">To,<br><b>@s.V.Name</b> (@s.V.Id)<br>@s.V.City</p>
+    <span class="doc-status @(b.Paid ? "st-paid" : "st-pending")">@(b.Paid ? "PAID" : "PAYMENT PENDING")</span>
+</div>
+<p class="doc-subject">Subject: Payment advice — @s.T.Id (@s.T.Mbk)</p>
+<p>Dear Sir / Madam,</p>
+@if (b.Paid)
+{
+    <p class="doc-text">
+        We have paid <b>@Fmt.Inr(b.AmountPaid > 0 ? b.AmountPaid : amount)</b> by <b>@b.Mode</b> from <b>@b.Bank</b>,
+        transaction no. <b>@(b.Utr ?? b.ChequeNo ?? "-")</b>, on <b>@Fmt.Fdt(b.At)</b>. Please acknowledge receipt.
+    </p>
+}
+else
+{
+    <p class="doc-text">
+        Payment of <b>@Fmt.Inr(amount)</b> has been approved and is scheduled to be made by <b>@mode</b>.
+        We will send you a confirmation once it has been processed.
+    </p>
+}
+
+<div class="strip">Ticket Line</div>
+<table class="doc-table doc-table-flush">
+    <thead>
+        <tr><th class="c-n">#</th><th>Ticket / MBK</th><th>Service</th><th>Bill No. / Date</th><th>Mode</th><th>Status</th><th class="r">Amount (₹)</th></tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>1</td>
+            <td><b>@s.T.Id</b><div class="sub">@s.T.Mbk</div></td>
+            <td>@s.Name<div class="sub">@(s.Conf != "" ? s.Conf : "Pending")</div></td>
+            <td class="nw">@(s.Bill?.No ?? "-")<div class="sub">@Fmt.Dmy(s.Bill?.Date)</div></td>
+            <td>@mode</td>
+            <td><span class="doc-status @(b.Paid ? "st-paid" : "st-pending")">@(b.Paid ? "Paid" : "Pending")</span></td>
+            <td class="r b">@Fmt.Amt(amount)</td>
+        </tr>
+    </tbody>
+    <tfoot>
+        <tr><td colspan="6">Total</td><td class="r">@Fmt.Amt(amount)</td></tr>
+    </tfoot>
+</table>
+
+@if (b.Paid)
+{
+    <div class="strip strip-paid">Payment Details <span class="paid-tag">Paid</span></div>
+    <div class="box cols-4 ro">
+        <div class="f"><div class="fl">Payment Mode</div><div class="fv">@b.Mode</div></div>
+        <div class="f"><div class="fl">Bank</div><div class="fv">@b.Bank</div></div>
+        <div class="f"><div class="fl">@(b.ChequeNo != null ? "Cheque No." : "Transaction No.")</div><div class="fv">@(b.Utr ?? b.ChequeNo ?? "-")</div></div>
+        <div class="f"><div class="fl">Amount Paid (₹)</div><div class="fv">@Fmt.Amt(b.AmountPaid > 0 ? b.AmountPaid : amount)</div></div>
+    </div>
+}
+<p class="doc-closing">Yours faithfully,<br><b>For Southern Travels Private Limited</b></p>

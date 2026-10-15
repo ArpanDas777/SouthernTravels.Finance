@@ -1,0 +1,12 @@
+@model string[]
+<div class="doc-signs" style="--n:@Model.Length">
+    @foreach (var role in Model)
+    {
+        <div>
+            <div class="doc-sign-role">@role</div>
+            <div class="doc-sign-line">Signature</div>
+            <div class="doc-sign-f">Name: ____________</div>
+            <div class="doc-sign-f">Date: ____________</div>
+        </div>
+    }
+</div>

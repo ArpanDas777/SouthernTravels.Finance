@@ -1,0 +1,30 @@
+@model RtgsOutVm
+@{
+    Layout = "_Modal";
+    ViewData["Title"] = "RTGS Advice generated";
+    ViewData["Sub"] = Model.Rec.No + " · " + Model.Count + " ticket(s) · " + Model.Vendors + " vendor(s) · " + Fmt.Inr(Model.Total);
+    ViewData["Width"] = 560;
+    var no = Uri.EscapeDataString(Model.Rec.No);
+    var docs = new[]
+    {
+        (Kind: "internal", Title: "RTGS Internal", Note: "Vendor, amount and cheque details with a total — for Finance records."),
+        (Kind: "bank", Title: "RTGS Bank", Note: "Beneficiary, account, IFSC and amount — to send to the bank."),
+    };
+}
+<div class="rtgs-docs">
+    @foreach (var d in docs)
+    {
+        <div class="rtgs-doc">
+            <div class="flex1">
+                <div class="b strong">@d.Title <span class="muted fs12">(PDF)</span></div>
+                <div class="fs12 muted">@d.Note</div>
+            </div>
+            @* Get opens the letter on its own page, where Download PDF is the print dialog's Save as PDF. *@
+            <a class="btn btn-sm" href="/Finance/PaymentRequest/RtgsPdf?no=@no&kind=@d.Kind" target="_blank" rel="noopener">Get</a>
+            <button type="button" class="btn btn-sm" data-pop="/Finance/PaymentRequest/Popup?t=rtgsView&no=@no&kind=@d.Kind">View</button>
+        </div>
+    }
+</div>
+@section Footer {
+    <button type="button" class="btn" data-close>Close</button>
+}

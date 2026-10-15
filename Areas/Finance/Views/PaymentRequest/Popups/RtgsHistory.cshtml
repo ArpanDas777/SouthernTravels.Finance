@@ -1,0 +1,57 @@
+@model RtgsHistVm
+@{
+    Layout = "_Modal";
+    ViewData["Title"] = "RTGS Advice History";
+    ViewData["Sub"] = Model.Rows.Count + " advice(s) created";
+    ViewData["Width"] = 1000;
+}
+@if (Model.Rows.Count == 0)
+{
+    <div class="empty">No RTGS advice created yet.</div>
+}
+else
+{
+    <div class="tbl-scroll">
+        <table class="pop-table hist-table">
+            <thead>
+                <tr>
+                    <th>Advice No.</th><th>Date &amp; time</th><th>Created by</th><th>Tickets · Vendors</th><th class="al-right">Total</th><th>Payment</th><th>Letters</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var h in Model.Rows)
+                {
+                    var no = Uri.EscapeDataString(h.Rec.No);
+                    <tr>
+                        <td class="b link-ink">@h.Rec.No</td>
+                        <td>@Fmt.Fdt(h.Rec.At)</td>
+                        <td>@h.Rec.By</td>
+                        <td>@h.Count ticket(s) · @h.Vendors vendor(s)</td>
+                        <td class="al-right b">@Fmt.Inr(h.Total)</td>
+                        <td class="hist-btns">
+                            @if (h.Pending == 0)
+                            {
+                                <span class="b">Paid</span>
+                            }
+                            else
+                            {
+                                <span class="muted">@h.Pending of @h.Count unpaid</span>
+                                @if (Model.CanPay)
+                                {
+                                    <button type="button" class="btn btn-sm btn-primary" data-pop="/Finance/PaymentRequest/Popup?t=rtgsPay&no=@no">Update Payment Status</button>
+                                }
+                            }
+                        </td>
+                        <td class="hist-btns">
+                            <button type="button" class="btn btn-sm" data-pop="/Finance/PaymentRequest/Popup?t=rtgsView&no=@no&kind=internal&hist=1">Internal</button>
+                            <button type="button" class="btn btn-sm" data-pop="/Finance/PaymentRequest/Popup?t=rtgsView&no=@no&kind=bank&hist=1">Bank</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+@section Footer {
+    <button type="button" class="btn" data-close>Close</button>
+}

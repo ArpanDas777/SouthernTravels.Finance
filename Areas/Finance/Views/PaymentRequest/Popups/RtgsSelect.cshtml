@@ -1,0 +1,60 @@
+@model RtgsSelVm
+@{
+    Layout = "_Modal";
+    ViewData["Title"] = "Create RTGS Advice";
+    ViewData["Sub"] = "Step 1 of 2 — common details and tickets";
+    ViewData["Width"] = 760;
+    if (Model.Pool.Count > 0) { ViewData["Action"] = "CreateRtgs"; }
+}
+@if (Model.Pool.Count == 0)
+{
+    <div class="empty">No unpaid RTGS tickets left to advise.</div>
+}
+else
+{
+    <div class="sec nobar">Common details (apply to every ticket)</div>
+    <div class="fields">
+        <label class="fld"><span class="fld-l">Sender Ac No.<span class="req" aria-hidden="true">*</span></span>
+            <select name="senderBank" class="fld-in sel" data-req aria-required="true">
+                <option value="">Select…</option>
+                @foreach (var b in Model.Banks) { <option value="@b">@b</option> }
+            </select>
+        </label>
+        <label class="fld"><span class="fld-l">Cheque No.<span class="req" aria-hidden="true">*</span></span><input type="text" name="chequeNo" class="fld-in" data-req aria-required="true"></label>
+        <label class="fld"><span class="fld-l">Cheque Date<span class="req" aria-hidden="true">*</span></span><input type="date" name="chequeDate" class="fld-in" data-req aria-required="true"></label>
+        <label class="fld"><span class="fld-l">Random No.<span class="req" aria-hidden="true">*</span></span><input type="text" name="randomNo" class="fld-in" data-req aria-required="true"></label>
+        <label class="fld full"><span class="fld-l">Remarks (optional)</span><input type="text" name="remarks" class="fld-in" maxlength="200"></label>
+    </div>
+
+    <div class="sec">Select RTGS tickets</div>
+    <div class="tbl-scroll">
+        <table class="pop-table" style="min-width:520px">
+            <thead>
+                <tr>
+                    <th style="width:28px"><input type="checkbox" class="sel-chk" data-check-all aria-label="Select all tickets"></th>
+                    <th>Ticket</th><th>Vendor</th><th>Service</th><th class="al-right">Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var s in Model.Pool)
+                {
+                    <tr>
+                        <td><input type="checkbox" class="sel-chk" name="sid" value="@s.Id" data-rtgs-check aria-label="Select @s.T.Id"></td>
+                        <td><div class="b link-ink">@s.T.Id</div><div class="pop-sub">@s.T.Mbk</div></td>
+                        <td>@s.V.Name<div class="pop-sub">@s.V.Id</div></td>
+                        <td>@s.Name</td>
+                        <td class="al-right b">@Fmt.Inr(s.Bill?.Rec ?? 0)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+@section Footer {
+    <button type="button" class="btn" data-close>@(Model.Pool.Count == 0 ? "Close" : "Cancel")</button>
+    @if (Model.Pool.Count > 0)
+    {
+        @* Enabled once the common details are filled and at least one ticket is chosen. *@
+        <button type="submit" class="btn btn-confirm" data-needs-valid data-needs-checked disabled>Submit (0)</button>
+    }
+}

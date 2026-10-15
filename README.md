@@ -20,28 +20,78 @@ Then open http://localhost:5180.
 
 **Visual Studio:** open `SouthernTravels.Finance.sln` (Visual Studio 2022 17.8 or later, for .NET 8) and press F5. The `SouthernTravels.Finance` launch profile opens the browser at http://localhost:5180.
 
+## Project structure
+
+The app is split into **Core** (shared by everything) and **Areas** (one per business module). Finance is the first area; add another module as a sibling folder under `Areas/`.
+
+```
+Core/                              shared by every area
+  Controllers/  AppController.cs   base class: signed-in user, period, toast, area menu, Back()
+                SessionController  demo user switch and period filter (/Session/...)
+  Infrastructure/  Fmt, ReportQuery, Clock, DemoSession
+  Models/       LayoutCtx, GridModels (KPIs, columns, rows), G (grid-cell helpers), DocModels
+  Views/Shared/ _Layout, _Modal, _AdviceLayout, _Facts, _DocHead, _DocSigns, Report (the report grid)
+Areas/Finance/
+  FinanceArea.cs                   the area's name, side menu (one entry per report), home page
+  Controllers/  FinanceControllerBase, HomeController (/Finance, Seen)
+                VendorPayableController          /Finance/VendorPayable
+                AdvanceController                /Finance/Advance
+                ApprovedVendorPayableController  /Finance/ApprovedVendorPayable
+                PaymentRequestController         /Finance/PaymentRequest
+                VendorKycController              /Finance/VendorKyc
+  Data/         FinanceStore (in-memory sample data)
+  Models/       Domain, PopupModels, FinanceG, FinanceOptions
+  Reports/      FinanceReports (shared helpers) + one file per report
+  Views/<Report>/ ...              each report's pop-ups and printable pages
+wwwroot/                           css, js and images, shared
+```
+
+Each report controller owns its report page (`Index`), its pop-ups (`/Finance/<Report>/Popup?t=...`), its printable pages and its POST actions. `FinanceG.Pop(...)` builds a pop-up URL against the controller that owns that pop-up.
+
+**Adding another area** (for example HR): create `Areas/HR/` with its own `Controllers`, `Models`, `Views` and an `HrArea.cs` (name, menu, home page); derive a base controller from `AppController`, mark it `[Area("HR")]` and give each controller a `[Route("HR/<Page>")]`. Its views only need an `_ViewImports.cshtml` and `_ViewStart.cshtml` like the Finance ones. The layout, pop-up frame and report grid come from Core. Register the area's data store in `Program.cs`.
+
 ## How it fits together
 
-- `Data/FinanceStore.cs`: in-memory sample data (vendors, tickets, services, bills, advances, KYC). It is a singleton, so it resets on restart. Replace it with a real data source.
-- `Reports/FinanceReports.cs`: builds each report from the store: KPIs, filters, grouping, rows and expanded detail.
-- `Views/Finance/Report.cshtml`: one view renders every report (title, KPIs, tabs, toolbar, filters, grid, pager).
-- `Views/Finance/Popups/*.cshtml`: Raise/Reupload Bill, Bill Details, Vendor Bills, Payment Submission Advice, Advance payment, Payment Request payment and the document preview. `site.js` fetches them into a modal, and their forms post back to `FinanceController`.
+- `Areas/Finance/Data/FinanceStore.cs`: in-memory sample data (vendors, tickets, services, bills, advances, KYC). It is a singleton, so it resets on restart. Replace it with a real data source.
+- `Areas/Finance/Reports/`: builds each report from the store: KPIs, filters, grouping, rows and expanded detail.
+- `Core/Views/Shared/Report.cshtml`: one view renders every report (title, KPIs, tabs, toolbar, filters, grid, pager).
+- `Areas/Finance/Views/<Report>/Popups/*.cshtml`: the pop-ups. `site.js` fetches them into a modal; their forms post back to the owning controller.
 - `wwwroot/css/tokens.css`: design-system tokens (unchanged from the design bundle). `site.css` holds the component styles.
 - `wwwroot/js/site.js`: row expand/collapse, Expand All, filter panel, bulk selection, tooltips, toasts and popup forms (validation, TDS calculation).
 
 ### Advance Advice (print / PDF)
 
-`Views/Finance/AdvanceAdvice.cshtml` (styles in `wwwroot/css/advice.css`) is the printable A4 advance advice. It opens at `/Finance/AdvanceAdvice?sid=…` from **Print Advice** in the Advance Report or the Payment Details popup. It is only available for requests approved at both L1 and L2. It shows the vendor, service and guest, and financial details for that advance. Once a payment is recorded with **Update Payment**, the Payment Details section fills in (UTR or cheque number, bank, vendor account and IFSC from KYC, date, mode, and amount paid after TDS). **Download PDF** opens the browser's print dialog; choose "Save as PDF". The company address, GSTIN, phone and email in the header are still placeholders.
+**Printing:** all printable documents share `wwwroot/css/doc.css`: portrait A4. The Advance Advice, Payment Advice and RTGS letters use the `.doc.color` variant (navy and blue). Both keep dark text, ruled borders and sizes that read on a black-and-white printout: solid ruled boxes instead of coloured fills or white-on-dark headings (those vanish when a printer drops background colours), nothing smaller than 10.5px, no watermark, and no meaning carried by colour alone. The pages set `@page { size: A4 portrait }`, so the print dialog defaults to portrait.
+`Areas/Finance/Views/Advance/AdvanceAdvice.cshtml` (styles in `wwwroot/css/doc.css`) is the printable A4 advance advice. It opens at `/Finance/Advance/AdvanceAdvice?sid=…` from **Print Advice** in the Advance Report or the Payment Details popup. It is only available for requests approved at both L1 and L2. It shows the vendor, service and guest, and financial details for that advance. Once a payment is recorded with **Update Payment**, the Payment Details section fills in (UTR or cheque number, bank, vendor account and IFSC from KYC, date, mode, and amount paid after TDS). **Download PDF** opens the browser's print dialog; choose "Save as PDF". The company address, GSTIN, phone and email in the header are still placeholders.
 
-### Payment Advice (Payment Request Report)
+### Raise Bill and disputes
 
-Each vendor row in the Payment Request Report shows:
-- **Approval Status:** Approved only when every ticket in the drill-down has management approval; otherwise Pending.
-- **Payment Status:** Paid only when every ticket is paid; otherwise Pending.
+With several services in the **Raise Bill** pop-up, each service has its own **Raise Dispute — <ticket> only** button (enabled once that service's fields are filled), and the footer's **Raise Dispute (all)** disputes every service together. **Submit** raises all. Disputed bills are found in Vendor Payable → Filters → **Bill Status** → Dispute. **Reupload Bill** uses the same pop-up with empty fields and no dispute button; both show a collapsed **Bill history** table (the vendor's billed services).
 
-Hovering over Pending shows the count, for example "1 of 3 paid".
+### Approved Vendor Payable → Payment Request (spec of 13 Oct 2026)
 
-**Download Advice** opens `Views/Finance/PaymentAdvice.cshtml` (`/Finance/PaymentAdvice?vi=…&sids=…`). It lists the vendor's **unpaid** tickets from the drill-down, with the selling price and vendor payable for each, along with vendor details, bank details from KYC, totals, blank payment-details boxes and signatures. The button is disabled once every ticket for that vendor is paid. Each drill-down line also has its own **Download Advice**, which gives the same document for just that ticket (disabled once it is paid). Long lists continue onto extra A4 pages when printed.
+- **Approved Vendor Payable:** billed, operated services of confirmed tickets. Services already sent to Payment Request stay listed as **Sent for payment** but cannot be ticked and are left out of the KPIs. Vendor Wise adds a **Total Unbilled Tickets** chip per vendor (tickets that still have an operated service without a bill), a red "New bill(s) added" dot (vendors with the dot sort first; expanding the row clears it), and an **Ageing sort** filter. Aging is grey up to 7 days, amber over 7 and red over 14.
+- **Cart** (Approved Vendor Payable only): appears once something is ticked, grouped by vendor with a collapsible group row, Clear, a hide button (which leaves a "Cart (n)" pill), a total and **Submit**. On screens 1100px and wider it is a panel down the whole right edge of the page, and the page makes room for it. Below that it is a bottom sheet. On desktop (1280px and up) the rail steps aside to icons while the cart is open. The selection is kept while you filter, page or switch tabs, and is cleared when a Submit succeeds. **Vendor Payable** has no cart: ticking services shows a bulk **Raise Bill (n)** button in the toolbar.
+- **Payment Submission Advice:** each vendor gets a planned **Payment Mode** (RTGS by default, Physical Cheque, E-Cheque, Credit Card). It is stored on every service sent to Payment Request. "Not included in this advice" lists the vendor's other billed services that were left out.
+- **Payment Request Report:** vendor line (with Approval Status and Payment Status) and a drill-down with **Payment Mode** (plus the RTGS advice number once one exists), **Actual Payment Action**, **Mgmt. Approval**, and **Print** (opens the Payment Advice) and **Update** (while unpaid). Filters: Payment Status, Payment Mode, RTGS Advice, Service Type, Vendor.
+- **Payment Advice** (pop-up from a ticket line's **Print**): a portrait A4 letter for one ticket line, addressed to the vendor. **Print** opens it on its own page (`/Finance/PaymentRequest/PaymentAdvicePdf?sid=…`) where Download PDF is the print dialog's Save as PDF. Paid shows the amount, mode, bank and transaction no.; unpaid says the payment is approved and scheduled by the planned mode.
+- **RTGS advice:** **Create RTGS Advice** (the highlighted toolbar button) asks for the common details (Sender Ac No. bank, Cheque No., Cheque Date, Random No., optional Remarks) and the unpaid RTGS tickets not yet covered, then opens **RTGS Advice generated** with two PDF letters (portrait A4): **RTGS Internal** (with a "Total of amount" row) and **RTGS Bank** (without). The letter is in colour (navy and blue, still ruled and high-contrast so it reads on a black-and-white printout), and every table row carries its own Sender Ac No., Cheque No., Random No., Cheque Date, Beneficiary Ac No., IFSC, Amount, Beneficiary Name and Remarks. **View** shows the letter in a pop-up; **Get** (or **Download PDF** in the pop-up) opens it on its own page (`/Finance/PaymentRequest/RtgsPdf?no=…&kind=internal|bank`) where **Download PDF** opens the browser's print dialog — choose Save as PDF. **RTGS Advice History** lists every advice with Internal and Bank letters. Advice numbers run `RTGS-2610-201`, `-202`, …
+- The sender account numbers on the RTGS letters are placeholders (`HDFC [A/c No.]`) until real ones are supplied.
+
+### Responsive layout and shell
+
+Breakpoints are CSS media queries in `wwwroot/css/site.css` (the "Responsive" section), with a small script in `wwwroot/js/site.js` for the drawer, filter sheet and cart.
+
+| Width | Behaviour |
+|---|---|
+| under 480px | header title hidden |
+| under 560px | header search hidden |
+| under 768px (phone) | ☰ drawer (260px); no KPI tiles; full-width pop-ups |
+| under 1100px | filters open as a bottom sheet (scrim, × or Esc closes it); the toolbar wraps; **every row is a card** (header with chevron/tick and the first fields, caption-and-value body, footer with the actions); the cart is a bottom sheet |
+| under 1280px | the menu is an overlay drawer (216px; 260px on phones), closed by default; it closes on an outside tap, Esc or a menu click |
+| 1280px and up | fixed rail that collapses to icons (clicking the main area collapses it; the toggle brings it back), inline filters, side cart |
+
+The header is 48px with the logo, title, search, bell and the prototype's Switch user menu. The signed-in user's avatar, name and role sit at the bottom of the rail. KPIs are a strip of one-line 34px tiles. Every printable document (Advance Advice, RTGS letters, Payment Advice) is portrait A4 and scrolls sideways inside its frame on small screens.
 
 Report state (search, view, filters, sort, page) is kept in the query string. The demo user and the period filter are kept in cookies. Use **Switch user** to try **Vijay Gupta**, whose reports are read only.
 
@@ -56,6 +106,8 @@ Both payment popups ask for the following, with mandatory fields marked with a r
 | Amount Paid | Pre-filled with the net payable after TDS; editable | Pre-filled with the approved payable; editable |
 | Payment Slip | Upload required | Upload required |
 | Reference number | Cheque No. or UTR, depending on cheque type | Cheque No. is required when the mode is Cheque; UTR is required for NEFT, RTGS and IMPS; neither is required for Cash |
+
+RTGS Advice History has an **Update Payment Status** button per advice (shown while any ticket is unpaid). It opens the same fields as **Update** and records them against every unpaid ticket in that advice, each paid its own approved payable. The Advance Report lists only fully approved (L1 and L2) requests; a paid entry stays and shows **Paid**.
 
 The Advance Advice shows the entered Payment Date, Amount Paid, the slip's file name and the Added On time.
 

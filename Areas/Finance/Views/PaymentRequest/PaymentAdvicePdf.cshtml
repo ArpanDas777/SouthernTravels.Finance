@@ -1,0 +1,11 @@
+@model PrAdviceVm
+@{
+    Layout = "_AdviceLayout";
+    ViewData["FileName"] = "Payment Advice " + Model.AdviceNo;
+    ViewData["ToolbarTitle"] = "Payment Advice · " + Model.AdviceNo;
+    ViewData["ToolbarHint"] = Model.B.Paid ? "Paid" : "Payment pending";
+    ViewData["DocHead"] = Model.Head;
+    ViewData["DocClass"] = "color";
+    ViewData["Signs"] = new[] { "Prepared by", "Finance Head" };
+}
+<partial name="_PaymentAdviceBody" model="Model" />

@@ -1,0 +1,62 @@
+@*
+    Layout for printable portrait A4 documents (Advance Advice, RTGS letters, Payment Advice). Black on white — see doc.css.
+    ViewData: FileName (title = default PDF name), ToolbarTitle, ToolbarHint, DocHead (DocHead), Signs (string[]),
+              RemarkLines (int, optional: writing lines under the body).
+*@
+@{
+    var head = (DocHead)ViewData["DocHead"]!;
+    var signs = (string[])ViewData["Signs"]!;
+    var remarkLines = ViewData["RemarkLines"] as int? ?? 0;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@ViewData["FileName"]</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&display=swap">
+    <link rel="stylesheet" href="~/css/doc.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/advice.css" asp-append-version="true">
+</head>
+<body>
+    <div class="toolbar">
+        <span class="toolbar-title">@ViewData["ToolbarTitle"]</span>
+        <span class="toolbar-hint">@ViewData["ToolbarHint"]</span>
+        <span class="flex1"></span>
+        <button type="button" class="tb-btn tb-primary" data-print title="Opens the print dialog — choose “Save as PDF” as the destination">Download PDF</button>
+        <button type="button" class="tb-btn" data-print>Print</button>
+        <button type="button" class="tb-btn" onclick="window.close()">Close</button>
+    </div>
+
+    <div class="sheet-scroll">
+        <section class="doc @ViewData["DocClass"]">
+            <partial name="_DocHead" model="head" />
+
+            @RenderBody()
+
+            @if (remarkLines > 0)
+            {
+                <div class="strip">Remarks / Notes</div>
+                <div class="remarks">
+                    @for (var i = 0; i < remarkLines; i++)
+                    {
+                        <div class="rl @(i == remarkLines - 1 ? "last" : "")">&nbsp;</div>
+                    }
+                </div>
+            }
+
+            <partial name="_DocSigns" model="signs" />
+            @if (ViewData["Footer"] is string foot && foot != "")
+            {
+                <div class="doc-foot">@foot</div>
+            }
+        </section>
+    </div>
+
+    <script>
+        document.querySelectorAll('[data-print]').forEach(b => b.addEventListener('click', () => window.print()));
+    </script>
+</body>
+</html>
