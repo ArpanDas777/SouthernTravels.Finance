@@ -27,7 +27,7 @@ The app is split into **Core** (shared by everything) and **Areas** (one per bus
 ```
 Core/                              shared by every area
   Controllers/  AppController.cs   base class: signed-in user, period, toast, area menu, Back()
-                SessionController  demo user switch and period filter (/Session/...)
+                SessionController  the period filter (/Session/...)
   Infrastructure/  Fmt, ReportQuery, Clock, DemoSession
   Models/       LayoutCtx, GridModels (KPIs, columns, rows), G (grid-cell helpers), DocModels
   Views/Shared/ _Layout, _Modal, _AdviceLayout, _Facts, _DocHead, _DocSigns, Report (the report grid)
@@ -91,9 +91,9 @@ Breakpoints are CSS media queries in `wwwroot/css/site.css` (the "Responsive" se
 | under 1280px | the menu is an overlay drawer (216px; 260px on phones), closed by default; it closes on an outside tap, Esc or a menu click |
 | 1280px and up | fixed rail that collapses to icons (clicking the main area collapses it; the toggle brings it back), inline filters, side cart |
 
-The header is 48px with the logo, title, search, bell and the prototype's Switch user menu. The signed-in user's avatar, name and role sit at the bottom of the rail. KPIs are a strip of one-line 34px tiles. Every printable document (Advance Advice, RTGS letters, Payment Advice) is portrait A4 and scrolls sideways inside its frame on small screens.
+The header is 48px with the logo, title, search and bell. The signed-in user's avatar, name and role sit at the bottom of the rail. KPIs are a strip of one-line 34px tiles. Every printable document (Advance Advice, RTGS letters, Payment Advice) is portrait A4 and scrolls sideways inside its frame on small screens.
 
-Report state (search, view, filters, sort, page) is kept in the query string. The demo user and the period filter are kept in cookies. Use **Switch user** to try **Vijay Gupta**, whose reports are read only.
+Report state (search, view, filters, sort, page) is kept in the query string. The period filter (on the right of each report's title row) is kept in a cookie. There is no sign-in yet: everyone is the Administrator, so actions are always enabled.
 
 ### Recording payments
 

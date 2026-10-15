@@ -1,0 +1,32 @@
+@* Period filter: shown on the right of each report's title row. Posts to /Session/SetPeriod and returns to the same page. *@
+@{
+    var ctx = (LayoutCtx)ViewData["Ctx"]!;
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+}
+<form method="post" action="/Session/SetPeriod" class="bar period-bar m0" id="period-form">
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="returnUrl" value="@returnUrl">
+    <span class="bar-label">Period</span>
+    <select name="k" class="ctl ctl-28" data-autosubmit>
+        @foreach (var k in DemoSession.PeriodKinds)
+        {
+            <option value="@k" selected="@(k == ctx.PeriodKind)">@k</option>
+        }
+    </select>
+    @if (ctx.PeriodKind == "Custom")
+    {
+        <input type="date" name="from" value="@ctx.PeriodFrom" class="ctl ctl-28 num" data-autosubmit aria-label="Period from">
+        <span class="faint">→</span>
+        <input type="date" name="to" value="@ctx.PeriodTo" class="ctl ctl-28 num" data-autosubmit aria-label="Period to">
+    }
+    else
+    {
+        <input type="hidden" name="from" value="@ctx.PeriodFrom">
+        <input type="hidden" name="to" value="@ctx.PeriodTo">
+    }
+    @if (ctx.PeriodText != null)
+    {
+        <span class="period-info">Filtering by @ctx.PeriodField @ctx.PeriodText</span>
+        <button type="button" class="btn btn-sm btn-ghost" data-period-clear>Clear</button>
+    }
+</form>
