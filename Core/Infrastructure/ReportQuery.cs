@@ -15,6 +15,9 @@ public sealed class ReportQuery
     public string Sort { get; set; } = "";
     public int Dir { get; set; } = 1;
     public int Page { get; set; } = 1;
+    /// <summary>Rows per page: 10, 25, 50 or 100.</summary>
+    public int Size { get; set; } = 10;
+    public static readonly int[] PageSizes = [10, 25, 50, 100];
     /// <summary>Filter panel open.</summary>
     public bool Fo { get; set; }
     public Dictionary<string, string> F { get; set; } = new();
@@ -32,6 +35,7 @@ public sealed class ReportQuery
             Sort = Get("sort"),
             Dir = Get("dir") == "-1" ? -1 : 1,
             Page = int.TryParse(Get("page"), out var p) && p > 0 ? p : 1,
+            Size = int.TryParse(Get("ps"), out var ps) && PageSizes.Contains(ps) ? ps : 10,
             Fo = Get("fo") == "1",
         };
         foreach (var kv in r.Query.Where(kv => kv.Key.StartsWith("f_")))
@@ -43,7 +47,7 @@ public sealed class ReportQuery
 
     public ReportQuery Clone() => new()
     {
-        Path = Path, Q = Q, View = View, From = From, To = To, Sort = Sort, Dir = Dir, Page = Page, Fo = Fo,
+        Path = Path, Q = Q, View = View, From = From, To = To, Sort = Sort, Dir = Dir, Page = Page, Size = Size, Fo = Fo,
         F = new Dictionary<string, string>(F),
     };
 
@@ -67,6 +71,7 @@ public sealed class ReportQuery
         Add("sort", Sort);
         if (Sort != "" && Dir < 0) Add("dir", "-1");
         if (Page > 1) Add("page", Page.ToString());
+        if (Size != 10) Add("ps", Size.ToString());
         if (Fo) Add("fo", "1");
         return Path + QueryString.Create(kv);
     }

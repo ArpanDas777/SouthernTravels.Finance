@@ -31,6 +31,13 @@
     </div>
 
     <div class="sheet-scroll">
+        @if (ViewData["Raw"] is true)
+        {
+            @* The page supplies its own sheets (e.g. two letters in one download). *@
+            @RenderBody()
+        }
+        else
+        {
         <section class="doc @ViewData["DocClass"]">
             <partial name="_DocHead" model="head" />
 
@@ -53,6 +60,7 @@
                 <div class="doc-foot">@foot</div>
             }
         </section>
+        }
     </div>
 
     <script>

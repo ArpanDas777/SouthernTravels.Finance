@@ -1,0 +1,15 @@
+@model RtgsBothVm
+@* Both RTGS letters in one printout: Internal first, then Bank, each on its own A4 page. *@
+@{
+    Layout = "_AdviceLayout";
+    ViewData["Raw"] = true;
+    ViewData["DocHead"] = Model.Internal.Head;
+    ViewData["Signs"] = new string[0];
+    ViewData["FileName"] = "RTGS Advice " + Model.Internal.Rec.No + " (Internal and Bank)";
+    ViewData["ToolbarTitle"] = "RTGS letters · " + Model.Internal.Rec.No;
+    ViewData["ToolbarHint"] = "Internal and Bank · " + Model.Internal.Rows.Count + " ticket(s) · " + Fmt.Inr(Model.Internal.Total);
+}
+@{ ViewData["SheetClass"] = "sheet-break"; }
+<partial name="_RtgsLetter" model="Model.Internal" view-data="ViewData" />
+@{ ViewData["SheetClass"] = ""; }
+<partial name="_RtgsLetter" model="Model.Bank" view-data="ViewData" />

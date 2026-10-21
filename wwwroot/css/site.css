@@ -405,7 +405,7 @@ tr.detail > td { padding: 0; }
 /* ---------- RTGS advice pop-ups and the A4 landscape letters ---------- */
 .rtgs-docs { display: flex; flex-direction: column; gap: 10px; }
 .rtgs-doc { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card-sunken); }
-.hist-btns { display: flex; gap: 6px; }
+.hist-btns { display: flex; flex-wrap: nowrap; gap: 4px; white-space: nowrap; }
 .hist-table { min-width: 720px; }
 .svc-actions { display: flex; justify-content: flex-end; }
 .bill-hist { margin-top: 14px; border-top: 1px solid var(--rule, #e5e7eb); padding-top: 10px; }
@@ -414,3 +414,35 @@ tr.detail > td { padding: 0; }
 .bill-hist-tbl { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
 .bill-hist-tbl th, .bill-hist-tbl td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--rule, #e5e7eb); }
 .bill-hist-tbl .r { text-align: right; }
+.fields-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 767.98px) { .fields-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fld-in-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.pager-size { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; margin-right: 12px; }
+.cell-sel { height: 26px; font-size: 12px; max-width: 100%; }
+.btn-xs { height: 22px; padding: 0 8px; font-size: 11px; border-radius: 5px; }
+.nw { white-space: nowrap; }
+.fields-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+@media (max-width: 767.98px) { .fields-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.rtgs-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 10px; background: var(--card-sunken); border: 1px solid var(--rule); border-radius: 8px; font-size: 12.5px; }
+.rtgs-all { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; }
+.rtgs-picked { color: var(--ink-strong); }
+.rtgs-pick { max-height: 44vh; overflow: auto; margin-top: 8px; border: 1px solid var(--rule); border-radius: 8px; }
+.rtgs-vendor + .rtgs-vendor { border-top: 1px solid var(--rule); }
+.rtgs-vendor-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--thead-bg); position: sticky; top: 0; z-index: 1; font-size: 12.5px; }
+.rtgs-ticket { display: grid; grid-template-columns: 22px minmax(120px, 1fr) minmax(0, 2fr) auto; gap: 10px; align-items: center; padding: 7px 10px; border-top: 1px solid var(--rule-soft); cursor: pointer; font-size: 12.5px; }
+.rtgs-ticket:hover { background: var(--card-sunken); }
+.rtgs-ticket:has(input:checked) { background: var(--info-bg); }
+.rtgs-ticket-id { display: flex; flex-direction: column; line-height: 1.25; }
+.rtgs-ticket-amt { text-align: right; font-variant-numeric: tabular-nums; }
+.edit-sel-view, .edit-sel-form { display: inline-flex; align-items: center; gap: 6px; }
+.edit-sel-view[hidden], .edit-sel-form[hidden] { display: none; }
+
+/* ---------- page scroll: title and KPI tiles scroll away, tabs + toolbar (+ filter panel) and the table header stay pinned ---------- */
+/* main has 8px top padding, so the bar sits 8px above its edge (top:-8px) and brings its own 8px back with padding-top. */
+.sticky-bar { position: sticky; top: -8px; z-index: 12; display: flex; flex-direction: column; gap: 12px; flex: none; margin-top: -8px; padding-top: 8px; background: var(--page); }
+/* the grid no longer scrolls on its own: the page does, so the sticky header attaches to main */
+.grid-wrap { overflow: visible; flex: none; min-height: 0; }
+.grid th { top: var(--stick-h, 64px); }
+.grid.sub th { top: auto; }
+/* inline filter panel (1100px and up) lives in the pinned bar, so on short windows it scrolls inside itself instead of eating the page */
+@media (min-width: 1100px) { .sticky-bar .filters-panel { max-height: 16vh; min-height: 84px; overflow-y: auto; } }

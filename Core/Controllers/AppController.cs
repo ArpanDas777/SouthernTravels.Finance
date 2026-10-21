@@ -23,11 +23,10 @@ public abstract class AppController : Controller
 
     public override void OnActionExecuting(ActionExecutingContext context)
     {
-        var (user, kind, from, to) = DemoSession.Read(Request);
+        var (kind, from, to) = DemoSession.ReadPeriod(Request);
         Period = DemoSession.Range(kind, from, to);
         Ctx = new LayoutCtx
         {
-            User = user, UserName = DemoSession.Users[user].Name, UserRole = DemoSession.Users[user].Role,
             AreaName = Area.Name, AreaShort = Area.Short, Nav = Area.Nav, SeenUrl = Area.SeenUrl,
             PeriodKind = kind, PeriodFrom = from, PeriodTo = to,
             PeriodText = Period is { } r ? (kind == "Custom" && from == "" ? "…" : Fmt.Fd(r.From)) + " → " + (kind == "Custom" && to == "" ? "…" : Fmt.Fd(r.To)) : null,
@@ -44,5 +43,4 @@ public abstract class AppController : Controller
         return !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : Redirect(Area.HomeUrl);
     }
 
-    protected IActionResult Forbidden() => StatusCode(StatusCodes.Status403Forbidden);
 }

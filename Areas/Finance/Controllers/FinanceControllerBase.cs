@@ -14,7 +14,7 @@ public abstract class FinanceControllerBase(FinanceStore store) : AppController
     protected FinanceStore St => store;
     protected override AreaInfo Area => FinanceArea.Info;
 
-    FinanceReports Reports => new(store, ReportQuery.Parse(Request), Ctx.Perm, Period);
+    FinanceReports Reports => new(store, ReportQuery.Parse(Request), Period);
 
     /// <summary>Renders a report page. <paramref name="page"/> is the controller name (it highlights the side menu).</summary>
     protected IActionResult Report(string page, string periodField, Func<FinanceReports, ReportVm> build)

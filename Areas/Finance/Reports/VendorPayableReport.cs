@@ -23,7 +23,7 @@ public sealed partial class FinanceReports
         var defs = new List<FDef<Svc>>
         {
             new("type", "Service Type", s => s.V.Type), new("city", "Service City", s => s.V.City),
-            new("bs", "Bill Status", s => BillTxt[s.BStat], ["Not Raised", "Raised", "Dispute"]),
+            new("bs", "Bill Status", s => BillTxt[s.BStat], ["Pending", "Uploaded", "Disputed"]),
             new("ops", "OPS Status", s => OpsTxt(s.Ops), ["New", "In Progress", "Completed"]),
             new("ex", "Booking Executive", s => s.T.Exec), new("br", "Booking Branch", s => s.T.Branch),
         };
@@ -44,36 +44,37 @@ public sealed partial class FinanceReports
 
         Cell Act(Svc s)
         {
-            if (!perm) return Txt("left", "-", Mut);
             if (s.BStat == "N")
                 return s.Eligible
-                    ? C(Btn("Raise Bill", Pop("raise", ("ids", s.Id)), "primary"))
+                    ? C(Btn("Upload", Pop("raise", ("ids", s.Id)), "primary"))
                     : C(T("Available after " + Fmt.Fd(s.End), Mut, it: true));
             return C(Btn("View Bill Details", Pop("viewbill", ("id", s.Id))), Btn("Reupload Bill", Pop("raise", ("ids", s.Id), ("re", 1))));
         }
         Cell Appr(Svc s) => s.Bill != null ? C(Lv("L1", s.Bill.L1.St, ApTip(s.Bill.L1)), Lv("L2", s.Bill.L2.St, ApTip(s.Bill.L2))) : Txt("left", "-", Mut);
-        Cell Chk(Svc s) => perm && s.Eligible ? C(FinanceG.Chk(s, "vp", s.Neg, Fmt.Fd(s.Start) + " – " + Fmt.Fd(s.End))) : Empty;
+        Cell Chk(Svc s) => s.Eligible ? C(FinanceG.Chk(s, "vp", s.Neg, Fmt.Fd(s.Start) + " – " + Fmt.Fd(s.End))) : Empty;
         List<Cell> Money(Svc s) =>
         [
-            Txt("right", Fmt.Inr(s.Sell), num: true), Txt("right", Fmt.Inr(s.Contr), num: true), Txt("right", Fmt.Inr(s.Neg), Blue, num: true),
-            Variation(s), ProfitCell(s, 600),
+            Ca("right", T("Sell " + Fmt.Inr(s.Sell), num: true), T("Contr " + Fmt.Inr(s.Contr), num: true), T("Neg " + Fmt.Inr(s.Neg), Blue, 600, num: true)),
+            ProfitCell(s, 600),
             Txt("right", s.AdvPaid > 0 ? Fmt.Inr(s.AdvPaid) : "-", s.AdvPaid > 0 ? Green : Mut, num: true),
             Txt("right", s.Bal > 0 ? Fmt.Inr(s.Bal) : "Nil", s.Bal > 0 ? Red : Green, 600, num: true),
-            C(Chip(BillTxt[s.BStat], BillTone[s.BStat])), Appr(s), Act(s),
+            C(Chip(BillTxt[s.BStat], BillTone[s.BStat])), Appr(s),
+            Txt("right", s.Bill != null ? Fmt.Inr(s.Bill.Inv) : "-", s.Bill != null ? null : Mut, num: true), Variation(s), Act(s),
         ];
-        object[] mHead = [("Selling Rate", "right"), ("Contracted Rate", "right"), ("Negotiated", "right"), ("Variation", "right"), ("Profit / % on CP · SP", "right"), ("Advance Paid", "right"), ("Balance to Pay", "right"), "Bill Status", "Approval (L1/L2)", "Actions"];
+        object[] mHead = [("Selling / Contracted / Negotiated", "right"), ("Profit / % on CP · SP", "right"), ("Advance Paid", "right"), ("Balance to Pay", "right"), "Bill Status", "Approval (L1/L2)", ("Bill Amount", "right"), ("Variation", "right"), "Actions"];
         static int Pend(List<Svc> ss) => ss.Count(s => s.BStat != "R");
         static Cell BpCell(int n) => Ca("center", Chip(n.ToString(), n > 0 ? "danger" : "ok"));
         static Cell ConfCell(Svc s) => C(T(s.Name), Sub(s.Conf != "" ? s.Conf : "Pending"));
 
-        List<Col> cols; List<Row> gridRows; string count;
+        List<Col> cols; List<Row> gridRows; string count; PagerVm pager;
         if (view == "vendor")
         {
             var gs = rows.GroupBy(s => s.Vi).OrderBy(g => g.Key).Select(g => g.ToList()).ToList();
             count = gs.Count + " vendors";
-            var nh = Cols([.. new object[] { "", "MBK / Ticket", "Name of Service / Conf. No.", "Service Dates" }, .. mHead]);
-            cols = Cols("", "Vendor ID", "Vendor Name", "Service Type(s)", "City/Cities", ("Total Services", "center"), ("Total Duration", "right"), ("Bills Pending", "center"), ("Total Profit Earned", "right"), ("Total Business", "right"));
-            gridRows = gs.Select(ss =>
+            var nh = Cols([.. new object[] { "", "Ticket / File No. / MBK", "Name of Service / Conf. No.", "Service Dates" }, .. mHead]);
+            cols = Cols("", "Vendor ID", "Vendor Name", "Service Type(s)", "City/Cities", ("Total Services", "center"), ("Total Duration", "right"), ("Bills Uploaded", "center"), ("Bills Pending", "center"), ("Total Profit Earned", "right"), ("Total Business", "right"));
+            var (pgs, pg) = Paged(gs); pager = pg;
+            gridRows = pgs.Select(ss =>
             {
                 var v = ss[0].V; var prof = ss.Sum(s => s.Profit);
                 return new Row
@@ -82,13 +83,13 @@ public sealed partial class FinanceReports
                     Cells =
                     [
                         Txt("left", v.Id, Link, 700), Txt("left", v.Name, Strong, 600), new Cell { Lines = ss.Select(s => s.V.Type).Distinct().Select(Pill).ToList() },
-                        Txt("left", v.City, Mut), Txt("center", ss.Count.ToString(), w: 600, num: true), Txt("right", ss.Sum(s => s.Dur) + "d", num: true), BpCell(Pend(ss)),
+                        Txt("left", v.City, Mut), Txt("center", ss.Count.ToString(), w: 600, num: true), Txt("right", ss.Sum(s => s.Dur) + "d", num: true), Ca("center", Chip(ss.Count(s => s.BStat == "R").ToString(), "ok")), BpCell(Pend(ss)),
                         Txt("right", Fmt.Inr(prof), prof < 0 ? Red : Green, 600, num: true), Txt("right", Fmt.Inr(ss.Sum(s => s.Neg)), Link, 800, num: true),
                     ],
                     Detail = new Detail
                     {
                         Cols = nh,
-                        Rows = ss.Select(List<Cell> (s) => [Chk(s), C(T(s.T.Mbk, Link, 700), Sub(s.T.Id)), ConfCell(s), Dates(s), .. Money(s)]).ToList(),
+                        Rows = ss.Select(List<Cell> (s) => [Chk(s), C(T(s.T.Id, Link, 700), Sub("File " + s.T.File), Sub("MBK " + s.T.Mbk)), ConfCell(s), Dates(s), .. Money(s)]).ToList(),
                     },
                 };
             }).ToList();
@@ -99,7 +100,8 @@ public sealed partial class FinanceReports
             count = gs.Count + " tickets";
             var nh = Cols([.. new object[] { "", "Vendor", "Service Type / City", "Name of Service / Conf. No.", "Service Dates" }, .. mHead]);
             cols = Cols("", "Ticket / MBK", "File No.", "Passenger", ("Pax", "center"), "Booking Exec / Branch", ("Base Price", "right"), ("Discount", "right"), ("GST", "right"), ("Grand Total", "right"), ("Balance", "right"), "Ticket Status", ("Bills Pending", "center"), ("Total Business", "right"));
-            gridRows = gs.Select(ss =>
+            var (pgs, pg) = Paged(gs); pager = pg;
+            gridRows = pgs.Select(ss =>
             {
                 var t = ss[0].T; var bal = t.Grand - t.Paid;
                 return new Row
@@ -124,11 +126,11 @@ public sealed partial class FinanceReports
 
         return new ReportVm
         {
-            Title = "Vendor Payable Report", Pill = true, Perm = perm, Kpis = kpis, Query = q, Tabs = ViewTabs(view),
+            Title = "Vendor Payable Report", Pill = true, Kpis = kpis, Query = q, Tabs = ViewTabs(view),
             Desc = "Consolidated view of amounts owed to each vendor — covering contracted rate, negotiated amount, variation, and net vendor payable per ticket and service, plus Finance’s bill entry, approval (L1/L2), and payment-action tracking per service.",
             Qph = "Search Vendor Name, Ticket No., MBK No., Passenger, File No...", Filters = MkFilters(baseRows, defs), FCount = FCount(defs, true),
-            DateLabel = "Service Date Range (overlap)", Count = count, SelLabel = perm ? "Raise Bill" : null, SelPopup = PopUrl("raise"),
-            Cols = cols, Rows = gridRows, EmptyText = view == "vendor" ? "No vendors found." : "No tickets found.", ClearAllUrl = ClearAll,
+            DateLabel = "Service Date Range (overlap)", Count = count, SelLabel = "Upload Bill", SelPopup = PopUrl("raise"),
+            Cols = cols, Rows = gridRows, Pager = pager, EmptyText = view == "vendor" ? "No vendors found." : "No tickets found.", ClearAllUrl = ClearAll,
         };
     }
 }

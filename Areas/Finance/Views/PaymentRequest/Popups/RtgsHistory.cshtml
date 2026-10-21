@@ -15,7 +15,7 @@ else
         <table class="pop-table hist-table">
             <thead>
                 <tr>
-                    <th>Advice No.</th><th>Date &amp; time</th><th>Created by</th><th>Tickets · Vendors</th><th class="al-right">Total</th><th>Payment</th><th>Letters</th>
+                    <th>Advice No.</th><th>Date &amp; time</th><th>Created by</th><th>Tickets · Vendors</th><th class="al-right">Total</th><th>Payment</th><th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -28,23 +28,17 @@ else
                         <td>@h.Rec.By</td>
                         <td>@h.Count ticket(s) · @h.Vendors vendor(s)</td>
                         <td class="al-right b">@Fmt.Inr(h.Total)</td>
-                        <td class="hist-btns">
-                            @if (h.Pending == 0)
-                            {
-                                <span class="b">Paid</span>
-                            }
-                            else
-                            {
-                                <span class="muted">@h.Pending of @h.Count unpaid</span>
-                                @if (Model.CanPay)
+                        <td class="nw">@(h.Pending == 0 ? "Paid" : $"{h.Pending} of {h.Count} unpaid")</td>
+                        <td>
+                            <div class="hist-btns">
+                                @if (h.Pending > 0)
                                 {
-                                    <button type="button" class="btn btn-sm btn-primary" data-pop="/Finance/PaymentRequest/Popup?t=rtgsPay&no=@no">Update Payment Status</button>
+                                    <button type="button" class="btn btn-xs btn-primary" data-pop="/Finance/PaymentRequest/Popup?t=rtgsPay&no=@no">Update Payment Status</button>
                                 }
-                            }
-                        </td>
-                        <td class="hist-btns">
-                            <button type="button" class="btn btn-sm" data-pop="/Finance/PaymentRequest/Popup?t=rtgsView&no=@no&kind=internal&hist=1">Internal</button>
-                            <button type="button" class="btn btn-sm" data-pop="/Finance/PaymentRequest/Popup?t=rtgsView&no=@no&kind=bank&hist=1">Bank</button>
+                                <button type="button" class="btn btn-xs" data-pop="/Finance/PaymentRequest/Popup?t=rtgsView&no=@no&kind=internal&hist=1">Internal</button>
+                                <button type="button" class="btn btn-xs" data-pop="/Finance/PaymentRequest/Popup?t=rtgsView&no=@no&kind=bank&hist=1">Bank</button>
+                                <a class="btn btn-xs" href="/Finance/PaymentRequest/RtgsPdf?no=@no&kind=both" target="_blank" rel="noopener">Both (PDF)</a>
+                            </div>
                         </td>
                     </tr>
                 }

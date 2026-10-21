@@ -1,17 +1,10 @@
 namespace SouthernTravels.Core.Infrastructure;
 
-/// <summary>Demo sign-in and the period filter, shared by every area. Both live in cookies; there is no real authentication yet.</summary>
+/// <summary>The period filter, shared by every area. It lives in a cookie; there is no sign-in yet.</summary>
 public static class DemoSession
 {
-    public const string UserCookie = "fin_user", PeriodCookie = "fin_period";
+    public const string PeriodCookie = "fin_period";
     public static readonly string[] PeriodKinds = ["All time", "Today", "This Week", "This Month", "This Quarter", "This Year", "Custom"];
-
-    public static readonly Dictionary<string, (string Name, string Role)> Users = new()
-    {
-        ["admin"] = ("Administrator", "Administrator"),
-        ["mounika"] = ("Mounika", "Finance Executive"),
-        ["vijay"] = ("Vijay Gupta", "Finance Head"),
-    };
 
     /// <summary>The from/to dates a period kind stands for; null for "All time".</summary>
     public static (string, string)? Range(string kind, string from, string to)
@@ -30,12 +23,10 @@ public static class DemoSession
         }
     }
 
-    /// <summary>The signed-in demo user and period filter stored in the request's cookies.</summary>
-    public static (string User, string Kind, string From, string To) Read(HttpRequest r)
+    /// <summary>The period filter stored in the request's cookie.</summary>
+    public static (string Kind, string From, string To) ReadPeriod(HttpRequest r)
     {
-        var user = r.Cookies[UserCookie] is { } u && Users.ContainsKey(u) ? u : "admin";
         var parts = (r.Cookies[PeriodCookie] ?? "All time||").Split('|');
-        var kind = PeriodKinds.Contains(parts[0]) ? parts[0] : "All time";
-        return (user, kind, parts.ElementAtOrDefault(1) ?? "", parts.ElementAtOrDefault(2) ?? "");
+        return (PeriodKinds.Contains(parts[0]) ? parts[0] : "All time", parts.ElementAtOrDefault(1) ?? "", parts.ElementAtOrDefault(2) ?? "");
     }
 }

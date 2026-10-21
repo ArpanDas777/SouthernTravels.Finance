@@ -2,9 +2,10 @@
 @{
     Layout = "_Modal";
     ViewData["Title"] = "Create RTGS Advice";
-    ViewData["Sub"] = "Step 1 of 2 — common details and tickets";
-    ViewData["Width"] = 760;
+    ViewData["Sub"] = "Step 1 of 2 — choose the tickets, then add the common details";
+    ViewData["Width"] = 1000;
     if (Model.Pool.Count > 0) { ViewData["Action"] = "CreateRtgs"; }
+    var vendors = Model.Pool.GroupBy(s => s.Vi).ToList();
 }
 @if (Model.Pool.Count == 0)
 {
@@ -12,8 +13,37 @@
 }
 else
 {
-    <div class="sec nobar">Common details (apply to every ticket)</div>
-    <div class="fields">
+    @* Tickets first: available tickets grouped by vendor, with a running count and total of what is ticked. *@
+    <div class="rtgs-bar">
+        <label class="rtgs-all"><input type="checkbox" class="sel-chk" data-check-all aria-label="Select all tickets"> Select all</label>
+        <span class="rtgs-avail"><b>@Model.Pool.Count</b> ticket@(Model.Pool.Count == 1 ? "" : "s") available · @vendors.Count vendor@(vendors.Count == 1 ? "" : "s") · @Fmt.Inr(Model.Pool.Sum(s => s.Bill?.Rec ?? 0))</span>
+        <span class="flex1"></span>
+        <span class="rtgs-picked">Selected: <b data-rtgs-n>0</b> · <b data-rtgs-sum>₹0</b></span>
+    </div>
+    <div class="rtgs-pick">
+        @foreach (var g in vendors)
+        {
+            <div class="rtgs-vendor">
+                <div class="rtgs-vendor-head">
+                    <span class="b strong">@g.First().V.Name</span> <span class="pop-sub">@g.First().V.Id</span>
+                    <span class="flex1"></span>
+                    <span class="muted fs12">@g.Count() ticket@(g.Count() == 1 ? "" : "s") · @Fmt.Inr(g.Sum(s => s.Bill?.Rec ?? 0))</span>
+                </div>
+                @foreach (var s in g)
+                {
+                    <label class="rtgs-ticket">
+                        <input type="checkbox" class="sel-chk" name="sid" value="@s.Id" data-rtgs-check data-amt="@(s.Bill?.Rec ?? 0)" aria-label="Select @s.T.Id">
+                        <span class="rtgs-ticket-id"><span class="b link-ink">@s.T.Id</span><span class="pop-sub">@s.T.Mbk</span></span>
+                        <span class="rtgs-ticket-svc">@s.Name</span>
+                        <span class="rtgs-ticket-amt b">@Fmt.Inr(s.Bill?.Rec ?? 0)</span>
+                    </label>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="sec">Common details (apply to every ticket)</div>
+    <div class="fields fields-5">
         <label class="fld"><span class="fld-l">Sender Ac No.<span class="req" aria-hidden="true">*</span></span>
             <select name="senderBank" class="fld-in sel" data-req aria-required="true">
                 <option value="">Select…</option>
@@ -23,31 +53,7 @@ else
         <label class="fld"><span class="fld-l">Cheque No.<span class="req" aria-hidden="true">*</span></span><input type="text" name="chequeNo" class="fld-in" data-req aria-required="true"></label>
         <label class="fld"><span class="fld-l">Cheque Date<span class="req" aria-hidden="true">*</span></span><input type="date" name="chequeDate" class="fld-in" data-req aria-required="true"></label>
         <label class="fld"><span class="fld-l">Random No.<span class="req" aria-hidden="true">*</span></span><input type="text" name="randomNo" class="fld-in" data-req aria-required="true"></label>
-        <label class="fld full"><span class="fld-l">Remarks (optional)</span><input type="text" name="remarks" class="fld-in" maxlength="200"></label>
-    </div>
-
-    <div class="sec">Select RTGS tickets</div>
-    <div class="tbl-scroll">
-        <table class="pop-table" style="min-width:520px">
-            <thead>
-                <tr>
-                    <th style="width:28px"><input type="checkbox" class="sel-chk" data-check-all aria-label="Select all tickets"></th>
-                    <th>Ticket</th><th>Vendor</th><th>Service</th><th class="al-right">Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var s in Model.Pool)
-                {
-                    <tr>
-                        <td><input type="checkbox" class="sel-chk" name="sid" value="@s.Id" data-rtgs-check aria-label="Select @s.T.Id"></td>
-                        <td><div class="b link-ink">@s.T.Id</div><div class="pop-sub">@s.T.Mbk</div></td>
-                        <td>@s.V.Name<div class="pop-sub">@s.V.Id</div></td>
-                        <td>@s.Name</td>
-                        <td class="al-right b">@Fmt.Inr(s.Bill?.Rec ?? 0)</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <label class="fld"><span class="fld-l">Remarks (optional)</span><input type="text" name="remarks" class="fld-in" maxlength="200"></label>
     </div>
 }
 @section Footer {

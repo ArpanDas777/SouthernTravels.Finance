@@ -68,6 +68,9 @@ public static class G
     public static Line LinkBtn(string text, string href, string variant = "default") =>
         new() { Kind = LineKind.Btn, Text = text, Href = href, Variant = variant };
 
-    public static Line Dot(IEnumerable<TipLine> tip) => new() { Kind = LineKind.Dot, Tip = TipJson(tip) };
+    /// <summary>A drop-down that posts the new value (as "mode", with the row key as "sid") as soon as it changes.</summary>
+    public static Line Select(string chosen, IEnumerable<string> opts, string postUrl, string key, string label) =>
+        new() { Kind = LineKind.Select, Text = chosen, Opts = opts.ToList(), Pop = postUrl, Value = key, Meta = label };
 
+    public static Line Dot(IEnumerable<TipLine> tip) => new() { Kind = LineKind.Dot, Tip = TipJson(tip) };
 }

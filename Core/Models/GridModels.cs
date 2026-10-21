@@ -8,7 +8,7 @@ public sealed record TabVm(string Label, string Url, bool Active);
 public sealed record FilterVm(string Name, string Label, string Value, List<string> Opts);
 /// <summary>Pager button; a null Url means disabled.</summary>
 public sealed record PageBtn(string Label, string? Url, bool Active);
-public sealed record PagerVm(string Label, List<PageBtn> Pages);
+public sealed record PagerVm(string Label, List<PageBtn> Pages, List<PageBtn> Sizes);
 public sealed record ToolBtn(string Label, string Pop, bool Primary = false);
 
 public sealed class ReportVm
@@ -16,7 +16,6 @@ public sealed class ReportVm
     public required string Title { get; init; }
     public required string Desc { get; init; }
     public bool Pill { get; init; }
-    public bool Perm { get; init; }
     public List<Kpi> Kpis { get; init; } = [];
     public List<TabVm>? Tabs { get; init; }
     public required ReportQuery Query { get; init; }
@@ -55,7 +54,7 @@ public sealed class Col
     public bool Action { get; init; }
 }
 
-public enum LineKind { Text, Dot, Chip, Pill, Lv, Btn, Chk }
+public enum LineKind { Text, Dot, Chip, Pill, Lv, Btn, Chk, Select }
 
 public sealed class Line
 {
@@ -83,6 +82,8 @@ public sealed class Line
     public string? Svc { get; init; }
     public string? Meta { get; init; }
     public string? DotColor { get; init; }
+    /// <summary>Select: the choices (Text is the chosen one, Pop the URL it posts to, Value the row key and Meta the label).</summary>
+    public List<string>? Opts { get; init; }
 }
 
 public sealed class Cell

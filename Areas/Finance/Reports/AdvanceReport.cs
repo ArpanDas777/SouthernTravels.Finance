@@ -10,19 +10,16 @@ namespace SouthernTravels.Areas.Finance.Reports;
 /// <summary>Advance Report.</summary>
 public sealed partial class FinanceReports
 {
-    sealed record AdvRow(AdvanceRequest A, Svc S, string Ov, string Due);
+    sealed record AdvRow(AdvanceRequest A, Svc S, string Due);
 
     public ReportVm Advance()
     {
         var all = st.Svcs();
         List<AdvanceRequest> reqs;
         lock (st.Gate) reqs = st.Adv.ToList();
-        var rows = reqs.Select(a =>
-        {
-            var s = all.First(x => x.Id == a.Sid);
-            var ov = a.L1 == "X" || a.L2 == "X" ? "Rejected" : a.L1 == "A" && a.L2 == "A" ? "Approved" : "Requested";
-            return new AdvRow(a, s, ov, Fmt.Add(s.Start, -3));
-        }).Where(r => r.Ov == "Approved" && PerOk(r.A.At)).ToList();
+        // Only fully approved (L1 and L2) requests appear.
+        var rows = reqs.Where(a => a is { L1: "A", L2: "A" } && PerOk(a.At))
+            .Select(a => { var s = all.First(x => x.Id == a.Sid); return new AdvRow(a, s, Fmt.Add(s.Start, -3)); }).ToList();
         var defs = new List<FDef<AdvRow>>
         {
             new("ps", "Adv. Payment Status", r => r.A.Pay != null ? "Paid" : "Pending", ["Pending", "Paid"]),
@@ -34,8 +31,7 @@ public sealed partial class FinanceReports
         if (q.Sort is "start" or "due")
             rows = rows.OrderBy(r => r, Comparer<AdvRow>.Create((x, y) =>
                 (q.Sort == "due" ? Fmt.Cmp(x.Due, y.Due) : Fmt.Cmp(x.S.Start, y.S.Start)) * q.Dir)).ToList();
-        var (skip, pager) = MkPager(rows.Count);
-        var page = rows.Skip(skip).Take(10).ToList();
+        var (pageRows, pager) = Paged(rows);
 
         int Sum(Func<AdvRow, int> f, Func<AdvRow, bool> p) => rows.Where(p).Sum(f);
         var kpis = new List<Kpi>
@@ -57,7 +53,7 @@ public sealed partial class FinanceReports
 
         static Fact F(string l, string v, string? c = null, bool b = false) => new() { L = l, V = v, Color = c, Bold = b, Num = true };
 
-        var gridRows = page.Select(r =>
+        var gridRows = pageRows.Select(r =>
         {
             var (a, s) = (r.A, r.S);
             var t = s.T;
@@ -67,8 +63,7 @@ public sealed partial class FinanceReports
             var bal = t.Grand - t.Paid;
             var payCell = a.Pay != null ? C(Chip("Paid", "ok"), Sub(Fmt.Fdt(a.Pay.Date)))
                 : C(Chip("Pending", "warn"));
-            var actCell = !perm ? Txt("left", "-", Mut)
-                : a.Pay != null ? C(Btn("View Payment Details", Pop("advview", ("sid", a.Sid))), LinkBtn("Print Advice", AdviceUrl(a.Sid)))
+            var actCell = a.Pay != null ? C(Btn("View Payment Details", Pop("advview", ("sid", a.Sid))), LinkBtn("Print Advice", AdviceUrl(a.Sid)))
                 : C(Btn("Update Payment", Pop("advpay", ("sid", a.Sid)), "primary"), LinkBtn("Print Advice", AdviceUrl(a.Sid)));
             Line Ap(string l, string c)
             {
@@ -102,7 +97,7 @@ public sealed partial class FinanceReports
 
         return new ReportVm
         {
-            Title = "Advance Report", Pill = true, Perm = perm, Kpis = kpis, Query = q,
+            Title = "Advance Report", Pill = true, Kpis = kpis, Query = q,
             Desc = "Service-wise advance payment tracking — shows advance requests raised by OPS that are fully approved (L1 and L2), with their payment status. Once a payment is recorded the entry stays and is marked Paid.",
             Qph = "Search MBK, Ticket No., Passenger, Vendor, Service...", Filters = MkFilters(baseRows, defs), FCount = FCount(defs, true),
             DateLabel = "Tour Start Date", Count = rows.Count + " requests", Cols = cols, Rows = gridRows, EmptyText = "No advance requests found.", Pager = pager, ClearAllUrl = ClearAll,
