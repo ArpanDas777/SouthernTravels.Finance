@@ -33,6 +33,38 @@
     matchMedia('(min-width: 1280px)').addEventListener('change', e => { if (e.matches) setDrawer(false); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') setDrawer(false); });
 
+    /* ---------- pinned bar: the table header sticks right under it ---------- */
+    const stickyBar = $('[data-sticky-bar]');
+    if (stickyBar && window.ResizeObserver) {
+        // visible height of the bar = its height minus the 8px of main padding it hangs over (and 1px so the header overlaps it)
+        const setStick = () => document.documentElement.style.setProperty('--stick-h', Math.max(0, stickyBar.offsetHeight - 9) + 'px');
+        new ResizeObserver(setStick).observe(stickyBar);
+        setStick();
+    }
+
+    /* ---------- drop-downs inside a report grid that save on change ---------- */
+    // A value with an Edit button: Edit swaps in a [data-post] drop-down, which posts { sid: its row key, mode: the new value, all: 1 }
+    // with the page's antiforgery token and reloads so the toast shows.
+    document.addEventListener('click', e => {
+        const open = e.target.closest('[data-edit-open]'), cancel = e.target.closest('[data-edit-cancel]');
+        const box = (open || cancel) && (open || cancel).closest('[data-edit-sel]');
+        if (!box) return;
+        $('.edit-sel-view', box).hidden = !!open;
+        $('.edit-sel-form', box).hidden = !open;
+        if (open) $('select', box).focus();
+    });
+    document.addEventListener('change', async e => {
+        const s = e.target.closest('[data-post]');
+        if (!s) return;
+        const fd = new FormData();
+        fd.set('__RequestVerificationToken', $('input[name=__RequestVerificationToken]').value);
+        fd.set('sid', s.dataset.key); fd.set('mode', s.value); fd.set('all', '1');
+        fd.set('returnUrl', location.pathname + location.search);
+        s.disabled = true;
+        try { await fetch(s.dataset.post, { method: 'POST', body: fd, redirect: 'manual' }); } catch (err) { /* reload shows the real state */ }
+        location.reload();
+    });
+
     /* ---------- auto-submitting controls ---------- */
     document.addEventListener('change', e => {
         const el = e.target;
@@ -314,6 +346,9 @@
                 const n = ticks.filter(c => c.checked).length;
                 ok = ok && n > 0;
                 $$('[data-needs-checked]', form).forEach(b => { b.textContent = 'Submit (' + n + ')'; });
+                const nEl = $('[data-rtgs-n]', form), sumEl = $('[data-rtgs-sum]', form);
+                if (nEl) nEl.textContent = n;
+                if (sumEl) sumEl.textContent = inr(ticks.filter(c => c.checked).reduce((a, c) => a + (+c.dataset.amt || 0), 0));
             }
             $$('[data-needs-valid]', form).forEach(b => { b.disabled = !ok; });
             // Raise Bill: a per-service button only needs that service's own fields.
@@ -322,6 +357,7 @@
                     .every(i => i.type === 'file' ? i.files.length > 0 : i.value.trim() !== '');
             });
         };
+// Scan: fetch a scanned document from the scanner service on this PC and drop it into the file field next to the button.        form.addEventListener('click', async e => {            const btn = e.target.closest('[data-scan]');            if (!btn) return;            const input = $('input[type=file]', btn.parentElement);            if (!btn.dataset.scanUrl) { showToast('No scanner is configured (Scanner:Url in appsettings.json).'); return; }            btn.disabled = true; btn.textContent = 'Scanning…';            try {                const res = await fetch(btn.dataset.scanUrl, { method: 'POST' });                if (!res.ok) throw new Error(res.status);                const blob = await res.blob(), ext = blob.type.includes('pdf') ? 'pdf' : blob.type.includes('png') ? 'png' : 'jpg';                const dt = new DataTransfer();                dt.items.add(new File([blob], 'scan-' + Date.now() + '.' + ext, { type: blob.type }));                input.files = dt.files;                input.dispatchEvent(new Event('change', { bubbles: true }));            } catch (err) { showToast('Scanner not reachable — check the scanner service is running.'); }            btn.disabled = false; btn.textContent = 'Scan';        });
         form.addEventListener('input', validate);
         form.addEventListener('change', e => {
             const el = e.target;
@@ -329,9 +365,9 @@
             // the select-all box mirrors the rows
             if (el.matches('[data-rtgs-check]')) $('[data-check-all]', form).checked = $$('[data-rtgs-check]', form).every(c => c.checked);
             if (el.matches('[data-file]')) {
-                const fld = el.closest('.fld'), stamp = fld && fld.nextElementSibling && $('[data-file-stamp]', fld.nextElementSibling);
+const fld = el.closest('.fld'), grp = el.closest('.fields'), stamp = grp && $('[data-file-stamp]', grp);
                 $('[data-file-text]', fld).textContent = el.files.length ? el.files[0].name + ' selected' : '';
-                if (stamp) stamp.textContent = el.files.length ? 'Will be set on submit' : '-';
+                if (stamp) stamp.textContent = $$('[data-file]', grp).some(f => f.files.length) ? 'Will be set on submit' : '-';
             }
             if (el.matches('[data-ctype]')) {
                 const lbl = $('[data-no-label]', form);

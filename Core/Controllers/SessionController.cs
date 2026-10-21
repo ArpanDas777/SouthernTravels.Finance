@@ -13,8 +13,6 @@ public class SessionController : Controller
     {
         if (!DemoSession.PeriodKinds.Contains(k)) k = "All time";
         Response.Cookies.Append(DemoSession.PeriodCookie, k + "|" + (from ?? "") + "|" + (to ?? ""), new CookieOptions { HttpOnly = true, SameSite = SameSiteMode.Lax });
-        return Back(returnUrl);
+        return !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : Redirect("/");
     }
-
-    IActionResult Back(string? returnUrl) => !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : Redirect("/");
 }

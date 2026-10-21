@@ -10,8 +10,8 @@ namespace SouthernTravels.Areas.Finance.Reports;
 /// <summary>Approved Vendor Payable report.</summary>
 public sealed partial class FinanceReports
 {
-    /// <summary>Pending (not yet submitted), Sent for payment (in the basket, unpaid) or Paid.</summary>
-    static string PayStatus(Svc s) => s.Bk == null ? "Pending" : s.Bk.Paid ? "Paid" : "Sent for payment";
+    /// <summary>Unpaid (not yet submitted), Sent for payment (in the payment basket, unpaid) or Paid.</summary>
+    static string PayStatus(Svc s) => s.Bk == null ? "Unpaid" : s.Bk.Paid ? "Paid" : "Sent for payment";
     static string PayStatusTone(string s) => s switch { "Paid" => "ok", "Sent for payment" => "info", _ => "warn" };
 
     public ReportVm ApprovedVendorPayable()
@@ -23,16 +23,16 @@ public sealed partial class FinanceReports
         var pool = all.Where(s => s.Bill != null && s.Ops != 'N' && s.T.Status != "Pending" && PerOk(s.Bill.Date)).ToList();
         var defs = new List<FDef<Svc>>
         {
-            new("type", "Service Type", s => s.V.Type), new("bs", "Bill Status", s => BillTxt[s.Bill!.St], ["Raised", "Dispute"]),
-            new("ps", "Payment Status", PayStatus, ["Pending", "Paid", "Sent for payment"]),
+            new("type", "Service Type", s => s.V.Type), new("bs", "Bill Status", s => BillTxt[s.Bill!.St], ["Uploaded", "Disputed"]),
+            new("ps", "Payment Status", PayStatus, ["Unpaid", "Sent for payment", "Paid"]),
             new("ex", "Booking Executive", s => s.T.Exec), new("br", "Booking Branch", s => s.T.Branch),
         };
         var rows = ApplyF(pool, defs).Where(s => SearchOk(s.T.Id, s.V.Name, s.T.Pax)).ToList();
-        var open = rows.Where(s => s.Bk == null).ToList();
         var kpis = new List<Kpi>
         {
-            K("Vendors", open.Select(s => s.Vi).Distinct().Count(), Strong), K("Tickets Awaiting Submission", open.Select(s => s.Ti).Distinct().Count(), Blue),
-            K("Total Value", Fmt.Inr(open.Sum(s => s.Neg)), Green), K("Disputed Bills", open.Count(s => s.Bill!.St == "D"), Red),
+            K("Total Vendor", rows.Select(s => s.Vi).Distinct().Count(), Strong), K("Total Payable Bills", rows.Count, Blue),
+            K("Total Payable Value", Fmt.Inr(rows.Sum(s => s.Bill!.Rec)), Blue),
+            K("Paid Bill", rows.Count(s => s.Bk is { Paid: true }), Green), K("Unpaid Bills", rows.Count(s => s.Bk is not { Paid: true }), Red),
         };
 
         // Ageing sort: oldest-first / newest-first by each group's bill dates.
@@ -46,7 +46,7 @@ public sealed partial class FinanceReports
             _ => gs.OrderBy(g => g.Key),
         };
 
-        Cell Chk(Svc s) => perm && s.Bk == null ? C(FinanceG.Chk(s, "avp", s.Bill!.Rec, "Bill " + s.Bill.No + " · " + Fmt.Fd(s.Bill.Date))) : Empty;
+        Cell Chk(Svc s) => s.Bk == null ? C(FinanceG.Chk(s, "avp", s.Bill!.Rec, "Bill " + s.Bill.No + " · " + Fmt.Fd(s.Bill.Date))) : Empty;
         static List<TipLine> GtTip(Ticket t) =>
             [new("Base Price", Fmt.Inr(t.Base)), new("Discount", "−" + Fmt.Inr(t.Disc), c: "red"), new("GST", "+" + Fmt.Inr(t.Gst), c: "blue"), new("Grand Total", Fmt.Inr(t.Grand), b: true, rule: true)];
         static Cell Aging(Svc s)
@@ -70,7 +70,7 @@ public sealed partial class FinanceReports
         ];
         object[] cmnH = [("Service Price Info", "right"), ("Variation", "right"), ("Profit (SP-CP) / %", "right"), "Service Status", ("Adv. Paid / Balance", "right"), ("Aging", "right"), "Payment Status", "Bill"];
 
-        List<Col> cols; List<Row> gridRows; string count;
+        List<Col> cols; List<Row> gridRows; string count; PagerVm pager;
         if (view == "vendor")
         {
             // Tickets that still have operated services without a bill, per vendor (not limited by the period).
@@ -88,7 +88,8 @@ public sealed partial class FinanceReports
             count = order.Count + " vendors";
             var nh = Cols([.. new object[] { "", "Ticket Info", ("Price Info", "right"), "Bill Date / No.", "Service / Conf. No. / Period" }, .. cmnH]);
             cols = ActionLast(Cols("", "", "Vendor ID", "Vendor Name", "Service Type", "City", ("Total Business", "right"), ("Total Contracted", "right"), ("Total Negotiated", "right"), ("Total Profit", "right"), ("Total Unbilled Tickets", "center"), "Bill"));
-            gridRows = order.Select(vi =>
+            var (pOrder, pg) = Paged(order); pager = pg;
+            gridRows = pOrder.Select(vi =>
             {
                 var ss = groups[vi]; var v = st.V[vi];
                 int pr = ss.Sum(s => s.Profit), cp = ss.Sum(s => s.Contr), neg = ss.Sum(s => s.Neg), ub = unbilled.GetValueOrDefault(vi);
@@ -118,7 +119,8 @@ public sealed partial class FinanceReports
             count = gs.Count + " tickets";
             var nh = Cols([.. new object[] { "", "Vendor", "Service Type / City", "Service / Conf. No. / Period" }, .. cmnH]);
             cols = Cols("", "Ticket / MBK", ("Tour Base Price", "right"), ("Additional Profit", "right"), ("Discount", "right"), ("GST", "right"), ("Grand Total", "right"), ("Paid by Customer", "right"), ("Balance Pending", "right"), "Ticket Status", "Bill Date / No.", "Payment Status", ("Recommended Amt.", "right"));
-            gridRows = gs.Select(g =>
+            var (pgs, pg) = Paged(gs); pager = pg;
+            gridRows = pgs.Select(g =>
             {
                 var ss = g.ToList(); var t = ss[0].T;
                 int pay = ss.Sum(s => s.Neg), rec = ss.Sum(s => s.Bill!.Rec), extra = t.Grand - pay, bal = t.Grand - t.Paid;
@@ -149,10 +151,10 @@ public sealed partial class FinanceReports
         filters.Add(new FilterVm("f_age", "Ageing sort", age is "" ? "All" : age, ["All", "Old to new", "New to old"]));
         return new ReportVm
         {
-            Title = "Approved Vendor Payable", Pill = true, Perm = perm, Kpis = kpis, Query = q, Tabs = ViewTabs(view),
+            Title = "Fund Management (Approved Vendor Payable)", Pill = true, Kpis = kpis, Query = q, Tabs = ViewTabs(view),
             Desc = "Every service whose bill has been added in the Vendor Payable Report. Tick services — from either view — and submit; an advice sheet lets you confirm before they move to the Payment Request Report.",
             Qph = "Search Ticket No., Vendor, Passenger...", Filters = filters, FCount = FCount(defs, false) + (age is "" or "All" ? 0 : 1), Count = count,
-            SelLabel = perm ? "Submit" : null, SelPopup = PopUrl("advice"), Cart = true, Cols = cols, Rows = gridRows, ClearAllUrl = ClearAll,
+            SelLabel = "Submit", SelPopup = PopUrl("advice"), Cart = true, Cols = cols, Rows = gridRows, Pager = pager, ClearAllUrl = ClearAll,
             EmptyText = view == "vendor" ? "No billed vendor payables awaiting submission." : "No tickets awaiting submission.",
         };
     }

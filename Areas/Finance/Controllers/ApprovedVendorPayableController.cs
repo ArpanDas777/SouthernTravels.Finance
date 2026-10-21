@@ -18,7 +18,6 @@ public class ApprovedVendorPayableController(FinanceStore store) : FinanceContro
     public IActionResult Popup(string t, string? ids, int? vi)
     {
         var all = St.Svcs();
-        if (t == "advice" && !Ctx.Perm) return Forbidden();
         switch (t)
         {
             case "vbills":
@@ -55,7 +54,6 @@ public class ApprovedVendorPayableController(FinanceStore store) : FinanceContro
     [HttpPost("Submit")]
     public IActionResult Submit(string ids, string? returnUrl)
     {
-        if (!Ctx.Perm) return Forbidden();
         var idSet = (ids ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
         // Planned payment mode per vendor, posted as mode_<vendor index> from the advice; RTGS when missing.
         var modes = new Dictionary<int, string>();

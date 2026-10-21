@@ -1,8 +1,11 @@
 @model RaiseVm
+@inject IConfiguration Config
 @{
     Layout = "_Modal";
     var n = Model.Services.Count;
-    ViewData["Title"] = Model.Reupload ? "Reupload Bill" : "Raise Bill";
+    // The scanner is reached through a small service on this PC (see Scanner:Url in appsettings.json).
+    var scanUrl = Config["Scanner:Url"] ?? "";
+    ViewData["Title"] = Model.Reupload ? "Reupload Bill" : "Upload Bill";
     ViewData["Sub"] = n == 1 ? "1 service" : n + " services selected — enter bill details for each";
     ViewData["Width"] = 820;
     ViewData["Action"] = "RaiseBill";
@@ -16,15 +19,22 @@
     </div>
     <partial name="_Facts" model="@(new FactsBlock { Cols = 4, Strip = true, Items = [("Ticket No.", s.T.Id, G.Link, true), ("Vendor Name", s.V.Name, null, false), ("Service Name", s.Name, null, false), ("Vendor Payable", Fmt.Inr(s.Neg), G.Strong, true)] })" />
     <input type="hidden" name="Items[@i].Sid" value="@s.Id">
-    <div class="fields">
+    @* Bill date, bill no. and the two amounts share one line. *@
+    <div class="fields fields-4">
         <label class="fld"><span class="fld-l">Bill Date<span class="req" aria-hidden="true">*</span></span><input type="date" name="Items[@i].Date" class="fld-in" data-req data-svc="@i" aria-required="true"></label>
         <label class="fld"><span class="fld-l">Bill No.<span class="req" aria-hidden="true">*</span></span><input type="text" name="Items[@i].No" class="fld-in" placeholder="INV-2026-0451" data-req data-svc="@i" aria-required="true"></label>
-        <label class="fld full"><span class="fld-l">Upload Bill<span class="req" aria-hidden="true">*</span></span>
-            <span class="fld-file"><input type="file" name="Items[@i].File" data-req data-file data-svc="@i" aria-required="true"><span class="fld-file-ok" data-file-text></span></span>
-        </label>
-        <div class="fld full"><span class="fld-l">Bill Upload Date &amp; Time</span><div class="fld-ro" data-file-stamp>-</div></div>
         <label class="fld"><span class="fld-l">Amount as per Invoice (₹)<span class="req" aria-hidden="true">*</span></span><input type="number" min="1" step="1" name="Items[@i].Inv" class="fld-in" placeholder="@s.Neg" data-req data-svc="@i" aria-required="true"></label>
-        <label class="fld"><span class="fld-l">Recommended Amount for Payment (₹)<span class="req" aria-hidden="true">*</span></span><input type="number" min="1" step="1" name="Items[@i].Rec" class="fld-in" placeholder="@s.Neg" data-req data-svc="@i" aria-required="true"></label>
+        <label class="fld"><span class="fld-l">Recommended Amount (₹)<span class="req" aria-hidden="true">*</span></span><input type="number" min="1" step="1" name="Items[@i].Rec" class="fld-in" placeholder="@s.Neg" data-req data-svc="@i" aria-required="true"></label>
+    </div>
+    @* Each document is chosen from disk or scanned in; a scan is added to the field just like a chosen file. *@
+    <div class="fields">
+        <label class="fld"><span class="fld-l">Upload Bill<span class="req" aria-hidden="true">*</span></span>
+            <span class="fld-file"><input type="file" name="Items[@i].File" data-req data-file data-svc="@i" aria-required="true"><button type="button" class="btn btn-sm" data-scan data-scan-url="@scanUrl">Scan</button><span class="fld-file-ok" data-file-text></span></span>
+        </label>
+        <label class="fld"><span class="fld-l">Upload Voucher<span class="req" aria-hidden="true">*</span></span>
+            <span class="fld-file"><input type="file" name="Items[@i].Voucher" data-req data-file data-svc="@i" aria-required="true"><button type="button" class="btn btn-sm" data-scan data-scan-url="@scanUrl">Scan</button><span class="fld-file-ok" data-file-text></span></span>
+        </label>
+        <div class="fld full"><span class="fld-l">Upload Date &amp; Time</span><div class="fld-ro" data-file-stamp>-</div></div>
     </div>
     @* With several services, each can also be disputed on its own (the footer button disputes them all). *@
     @if (n > 1 && !Model.Reupload)
@@ -34,21 +44,24 @@
         </div>
     }
 }
-<details class="bill-hist">
-    <summary>Bill history · @Model.History.Count bill@(Model.History.Count == 1 ? "" : "s") already added</summary>
-    <div class="bill-hist-frame">
-        <table class="bill-hist-tbl">
-            <thead><tr><th>Ticket</th><th>Service</th><th>Bill No.</th><th>Bill Date</th><th class="r">Invoice</th><th class="r">Recommended</th><th>Status</th></tr></thead>
-            <tbody>
-                @foreach (var h in Model.History)
-                {
-                    <tr><td>@h.T.Id</td><td>@h.Name</td><td>@h.Bill!.No</td><td>@Fmt.Fd(h.Bill.Date)</td><td class="r">@Fmt.Inr(h.Bill.Inv)</td><td class="r">@Fmt.Inr(h.Bill.Rec)</td><td>@(h.Bill.St == "D" ? "Dispute" : "Raised")</td></tr>
-                }
-                @if (Model.History.Count == 0) { <tr><td colspan="7" class="muted">No bills added yet.</td></tr> }
-            </tbody>
-        </table>
-    </div>
-</details>
+@* Bill history belongs to Reupload only: it shows what is already on file for the vendor. *@
+@if (Model.Reupload)
+{
+    <details class="bill-hist">
+        <summary>Bill history · @Model.History.Count bill@(Model.History.Count == 1 ? "" : "s") already added</summary>
+        <div class="bill-hist-frame">
+            <table class="bill-hist-tbl">
+                <thead><tr><th>Ticket</th><th>Service</th><th>Bill No.</th><th>Bill Date</th><th class="r">Invoice</th><th class="r">Recommended</th><th>Status</th></tr></thead>
+                <tbody>
+                    @foreach (var h in Model.History)
+                    {
+                        <tr><td>@h.T.Id</td><td>@h.Name</td><td>@h.Bill!.No</td><td>@Fmt.Fd(h.Bill.Date)</td><td class="r">@Fmt.Inr(h.Bill.Inv)</td><td class="r">@Fmt.Inr(h.Bill.Rec)</td><td>@(h.Bill.St == "D" ? "Disputed" : "Uploaded")</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </details>
+}
 @section Footer {
     <button type="button" class="btn" data-close>Cancel</button>
     @if (!Model.Reupload)

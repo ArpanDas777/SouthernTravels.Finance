@@ -13,14 +13,7 @@
     </button>
     @if (Model.Pill)
     {
-        @if (Model.Perm)
-        {
-            <span class="chip chip-warn">Actions enabled for you</span>
-        }
-        else
-        {
-            <span class="chip chip-off">Read only for you</span>
-        }
+        <span class="chip chip-warn">Actions enabled for you</span>
     }
     <partial name="_PeriodBar" />
 </div>
@@ -35,6 +28,8 @@
     }
 </div>
 
+@* Tabs, toolbar and filter panel stay pinned at the top while the page scrolls; the title and KPI tiles scroll away. *@
+<div class="sticky-bar" data-sticky-bar>
 @if (Model.Tabs != null)
 {
     <div class="tabs" role="tablist">
@@ -49,6 +44,7 @@
     @if (q.View != "") { <input type="hidden" name="view" value="@q.View"> }
     @if (q.Sort != "") { <input type="hidden" name="sort" value="@q.Sort"><input type="hidden" name="dir" value="@q.Dir"> }
     <input type="hidden" name="fo" value="@(q.Fo ? "1" : "")" data-fo>
+    <input type="hidden" name="ps" value="@(q.Size != 10 ? q.Size.ToString() : "")">
 
     <div class="bar">
         <input name="q" value="@q.Q" placeholder="@Model.Qph" class="ctl search-in" data-search autocomplete="off" aria-label="Search" autofocus="@(q.Q != "")">
@@ -122,6 +118,7 @@
         </div>
     }
 </form>
+</div>
 
 <div id="toast" class="toast" role="status" hidden="@(ctx.Toast == null)">✓ <span data-toast-text>@ctx.Toast</span></div>
 
@@ -182,7 +179,7 @@
 @if (Model.Pager != null)
 {
     <div class="pager">
-        <span class="muted fs125">@Model.Pager.Label</span>
+<span class="muted fs125">@Model.Pager.Label</span>        <span class="pager-size"><span class="muted fs125">Rows per page</span>            @foreach (var z in Model.Pager.Sizes)            {                <a href="@z.Url" class="btn btn-sm pg @(z.Active ? "btn-primary" : "")" aria-current="@(z.Active ? "true" : null)">@z.Label</a>            }        </span>
         <div class="pager-btns">
             @foreach (var p in Model.Pager.Pages)
             {
@@ -277,6 +274,18 @@
                 break;
             case LineKind.Btn:
                 <button type="button" class="btn btn-sm btn-@l.Variant" disabled="@l.Disabled">@l.Text</button>
+                break;
+case LineKind.Select:
+                @* Shows the current value with an Edit button; Edit swaps in the drop-down, which saves as soon as it changes. *@
+                <span class="edit-sel" data-edit-sel>
+                    <span class="edit-sel-view"><span class="chip chip-info">@l.Text</span><button type="button" class="btn btn-xs" data-edit-open aria-label="Edit: @l.Meta">Edit</button></span>
+                    <span class="edit-sel-form" hidden>
+                        <select class="ctl cell-sel" data-post="@l.Pop" data-key="@l.Value" aria-label="@l.Meta">
+                            @foreach (var o in l.Opts!) { <!option value="@o" selected="@(o == l.Text)" disabled="@(o == "Mixed")">@o</!option> }
+                        </select>
+                        <button type="button" class="btn btn-xs" data-edit-cancel>Cancel</button>
+                    </span>
+                </span>
                 break;
             case LineKind.Chk:
                 <input type="checkbox" class="sel-chk" value="@l.Value" data-group="@l.Group" data-title="@l.Text" data-sub="@l.Sub" data-amt="@l.Amount" data-vi="@l.Vi" data-vid="@l.Vid" data-mbk="@l.Mbk" data-svc="@l.Svc" data-meta="@l.Meta" aria-label="Select service">

@@ -10,9 +10,9 @@ namespace SouthernTravels.Areas.Finance.Reports;
 public sealed record FDef<TRow>(string K, string L, Func<TRow, string> Get, string[]? Opts = null);
 
 /// <summary>Builds the five Finance reports from the store for the current query, user and period.</summary>
-public sealed partial class FinanceReports(FinanceStore st, ReportQuery q, bool perm, (string From, string To)? period)
+public sealed partial class FinanceReports(FinanceStore st, ReportQuery q, (string From, string To)? period)
 {
-    static readonly Dictionary<string, string> BillTxt = new() { ["R"] = "Raised", ["N"] = "Not Raised", ["D"] = "Dispute" };
+    static readonly Dictionary<string, string> BillTxt = new() { ["R"] = "Uploaded", ["N"] = "Pending", ["D"] = "Disputed" };
     static readonly Dictionary<string, string> BillTone = new() { ["R"] = "ok", ["N"] = "off", ["D"] = "danger" };
     static string OpsTxt(char c) => c switch { 'N' => "New", 'I' => "In Progress", _ => "Completed" };
     static readonly string[] Types = ["Accommodation", "Transport", "Guide", "En-Route Meals", "Other"];
@@ -38,15 +38,17 @@ public sealed partial class FinanceReports(FinanceStore st, ReportQuery q, bool 
     int FCount<TRow>(List<FDef<TRow>> defs, bool dates) =>
         defs.Count(d => q.Filter(d.K) is { Length: > 0 } f && f != "All") + (dates && (q.From != "" || q.To != "") ? 1 : 0);
 
-    (int Skip, PagerVm Pager) MkPager(int total, int per = 10)
+    /// <summary>Page of <paramref name="items"/> for the query's page and size, with the pager (page buttons and the 10/25/50/100 size choice).</summary>
+    (List<T> Page, PagerVm Pager) Paged<T>(List<T> items)
     {
-        int n = Math.Max(1, (total + per - 1) / per), pg = Math.Min(q.Page, n);
+        int per = q.Size, total = items.Count, n = Math.Max(1, (total + per - 1) / per), pg = Math.Min(q.Page, n);
         PageBtn Mk(string label, int to, bool act, bool dis) => new(label, dis ? null : q.Url(c => c.Page = to), act);
         var pages = new List<PageBtn> { Mk("‹", pg - 1, false, pg == 1) };
         pages.AddRange(Enumerable.Range(1, n).Select(i => Mk(i.ToString(), i, i == pg, false)));
         pages.Add(Mk("›", pg + 1, false, pg == n));
+        var sizes = ReportQuery.PageSizes.Select(z => new PageBtn(z.ToString(), q.Url(c => { c.Size = z; c.Page = 1; }), z == per)).ToList();
         int a = total > 0 ? (pg - 1) * per + 1 : 0, b = Math.Min(total, pg * per);
-        return ((pg - 1) * per, new PagerVm($"Showing {a}–{b} of {total}", pages));
+        return (items.Skip((pg - 1) * per).Take(per).ToList(), new PagerVm($"Showing {a}–{b} of {total}", pages, sizes));
     }
 
     List<TabVm> ViewTabs(string view) =>

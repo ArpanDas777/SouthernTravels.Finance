@@ -18,7 +18,6 @@ public class PaymentRequestController(FinanceStore store) : FinanceControllerBas
     public IActionResult Popup(string t, string? sid, string? no, string? kind, int hist)
     {
         var all = St.Svcs();
-        if (t is "prpay" or "rtgsSel" or "rtgsPay" && !Ctx.Perm) return Forbidden();
         switch (t)
         {
             case "rtgsSel":
@@ -41,7 +40,7 @@ public class PaymentRequestController(FinanceStore store) : FinanceControllerBas
                 {
                     var rows = LetterRows(r, all);
                     return new RtgsHistRow(r, rows.Count, rows.Select(x => x.BenName).Distinct().Count(), rows.Sum(x => x.Amount), PendingRtgs(r, all).Count);
-                }).ToList(), Ctx.Perm));
+                }).ToList()));
             }
             case "rtgsPay":
             {
@@ -89,12 +88,16 @@ public class PaymentRequestController(FinanceStore store) : FinanceControllerBas
         return vm == null ? NotFound() : View("PaymentAdvicePdf", vm);
     }
 
-    /// <summary>Printable RTGS letter (A4) for one advice — Internal or Bank. Opens in a new tab; "Download PDF" is the print dialog's Save as PDF.</summary>
+    /// <summary>Printable RTGS letter (A4) for one advice — Internal, Bank, or both together. Opens in a new tab; "Download PDF" is the print dialog's Save as PDF.</summary>
     [HttpGet("RtgsPdf")]
     public IActionResult RtgsPdf(string no, string kind)
     {
         var rec = FindRtgs(no);
-        return rec == null ? NotFound() : View("RtgsPdf", new RtgsLetterVm(rec, kind == "bank", false, Fmt.Dmy(rec.At), LetterRows(rec, St.Svcs())));
+        if (rec == null) return NotFound();
+        var rows = LetterRows(rec, St.Svcs());
+        RtgsLetterVm Letter(bool bank) => new(rec, bank, false, Fmt.Dmy(rec.At), rows);
+        // kind=both puts the Internal and Bank letters in one printout (one PDF).
+        return kind == "both" ? View("RtgsBothPdf", new RtgsBothVm(Letter(false), Letter(true))) : View("RtgsPdf", Letter(kind == "bank"));
     }
 
     RtgsRecord? FindRtgs(string? no)
@@ -113,12 +116,26 @@ public class PaymentRequestController(FinanceStore store) : FinanceControllerBas
                 Fmt.Fd(rec.Common.ChequeDate), St.K[s.Vi].Acc, St.K[s.Vi].Ifsc, s.Bill?.Rec ?? 0, s.V.Name, rec.Common.Remarks ?? "")).ToList();
 
     /* ---------- actions ---------- */
+    /// <summary>Unpaid ticket lines of a vendor that are still free to take a different planned payment mode.</summary>
+    static List<Svc> OpenOnVendor(List<Svc> all, int vi) => all.Where(s => s.Vi == vi && s.Bk is { Paid: false, RtgsNo: null }).ToList();
+
+    /// <summary>Changes the planned payment mode of one ticket line, or of every open line of its vendor.</summary>
+    [HttpPost("SetMode")]
+    public IActionResult SetMode(string sid, string? mode, string? all, string? returnUrl)
+    {
+        var svcs = St.Svcs();
+        var s = svcs.FirstOrDefault(x => x.Id == sid);
+        if (s?.Bk == null || mode == null || !FinanceOptions.PlanModes.Contains(mode)) return Back(returnUrl, "Mode not changed.");
+        var sids = all == "1" ? OpenOnVendor(svcs, s.Vi).Select(x => x.Id) : [sid];
+        var n = St.SetPlanMode(sids, mode);
+        return Back(returnUrl, n == 0 ? "Mode not changed — the line is already paid or has an RTGS advice." : $"Payment mode set to {mode} for {n} line(s).");
+    }
+
 
     /// <summary>Creates an RTGS advice from the tickets ticked in "Create RTGS Advice", then opens "RTGS Advice generated".</summary>
     [HttpPost("CreateRtgs")]
     public IActionResult CreateRtgs(string[]? sid, string? senderBank, string? chequeNo, string? chequeDate, string? randomNo, string? remarks, string? returnUrl)
     {
-        if (!Ctx.Perm) return Forbidden();
         var idSet = (sid ?? []).ToHashSet();
         var ok = FinanceOptions.SenderBanks.Contains(senderBank ?? "") && !string.IsNullOrWhiteSpace(chequeNo) && !string.IsNullOrWhiteSpace(randomNo)
             && DateTime.TryParseExact(chequeDate, "yyyy-MM-dd", Fmt.Inv, System.Globalization.DateTimeStyles.None, out _);
@@ -137,7 +154,6 @@ public class PaymentRequestController(FinanceStore store) : FinanceControllerBas
     public IActionResult PaymentPay(string sid, string? bank, string? mode, string? utr, string? chequeNo,
         string? paymentDate, decimal? amountPaid, IFormFile? slip, string? returnUrl)
     {
-        if (!Ctx.Perm) return Forbidden();
         if (string.IsNullOrWhiteSpace(bank) || string.IsNullOrWhiteSpace(mode) || !PaymentRefOk(mode, utr, chequeNo) || !ValidPaymentDate(paymentDate) || amountPaid is not > 0 || slip is null)
             return Back(returnUrl, "Payment not saved — every field is required.");
         St.PayRequest(sid, Ctx.UserName, bank.Trim(), mode, utr?.Trim(), chequeNo?.Trim(), paymentDate!, (int)amountPaid.Value, Path.GetFileName(slip.FileName));
@@ -149,7 +165,6 @@ public class PaymentRequestController(FinanceStore store) : FinanceControllerBas
     public IActionResult RtgsPay(string no, string? bank, string? mode, string? utr, string? chequeNo,
         string? paymentDate, IFormFile? slip, string? returnUrl)
     {
-        if (!Ctx.Perm) return Forbidden();
         var rec = FindRtgs(no);
         if (rec == null || string.IsNullOrWhiteSpace(bank) || string.IsNullOrWhiteSpace(mode) || !PaymentRefOk(mode, utr, chequeNo) || !ValidPaymentDate(paymentDate) || slip is null)
             return Back(returnUrl, "Payment not saved — every field is required.");

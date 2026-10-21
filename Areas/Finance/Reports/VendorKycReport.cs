@@ -28,7 +28,7 @@ public sealed partial class FinanceReports
         };
         var baseRows = rows;
         rows = ApplyF(rows, defs).Where(r => SearchOk(r.V.Id, r.V.Name, r.V.City)).ToList();
-        var (skip, pager) = MkPager(rows.Count);
+        var (pageRows, pager) = Paged(rows);
         var kpis = new List<Kpi>
         {
             K("Total Vendors", rows.Count, Strong), K("Empanelled", rows.Count(r => r.Es == "Empanelled"), Green),
@@ -37,7 +37,7 @@ public sealed partial class FinanceReports
         };
         static Fact F(string l, string v, bool full = false) => new() { L = l, V = v, Full = full };
 
-        var gridRows = rows.Skip(skip).Take(10).Select(r =>
+        var gridRows = pageRows.Select(r =>
         {
             var (k, v) = (r.K, r.V);
             var detail = new Detail
@@ -64,7 +64,7 @@ public sealed partial class FinanceReports
 
         return new ReportVm
         {
-            Title = "Vendor KYC Report", Perm = perm, Kpis = kpis, Query = q,
+            Title = "Vendor KYC Report", Kpis = kpis, Query = q,
             Desc = "Centralised KYC and vendor-onboarding register. Top line shows empanelment status and completeness; expand a vendor for contact, bank and document detail side by side. Contact, bank and document values are sample data — no KYC source is connected yet.",
             Qph = "Search Vendor Code, Name, City...", Filters = MkFilters(baseRows, defs), FCount = FCount(defs, false), Count = rows.Count + " vendors",
             HasExport = false, HasExpand = false,

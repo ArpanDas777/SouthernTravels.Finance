@@ -37,6 +37,7 @@ public sealed class RaiseItem
     public string? Date { get; set; }
     public string? No { get; set; }
     public IFormFile? File { get; set; }
+    public IFormFile? Voucher { get; set; }
     public decimal? Inv { get; set; }
     public decimal? Rec { get; set; }
 }
@@ -58,10 +59,13 @@ public sealed record RtgsSelVm(List<Svc> Pool, string[] Banks);
 public sealed record RtgsOutVm(RtgsRecord Rec, int Count, int Vendors, int Total);
 public sealed record RtgsHistRow(RtgsRecord Rec, int Count, int Vendors, int Total, int Pending);
 public sealed record RtgsPayVm(RtgsRecord Rec, int Pending, int Total, string PaidBy);
-public sealed record RtgsHistVm(List<RtgsHistRow> Rows, bool CanPay);
+public sealed record RtgsHistVm(List<RtgsHistRow> Rows);
 
 /// <summary>One line of an RTGS letter: a single service paid to a beneficiary.</summary>
 public sealed record RtgsLetterRow(int N, string SenderAc, string ChequeNo, string RandomNo, string ChequeDate, string BenAc, string Ifsc, int Amount, string BenName, string Remarks);
+
+/// <summary>Both letters of one advice, printed together.</summary>
+public sealed record RtgsBothVm(RtgsLetterVm Internal, RtgsLetterVm Bank);
 
 /// <summary>An RTGS letter. Internal adds a total row; Bank has none. <paramref name="FromHistory"/> shows "Back to History".</summary>
 public sealed record RtgsLetterVm(RtgsRecord Rec, bool Bank, bool FromHistory, string Date, List<RtgsLetterRow> Rows)

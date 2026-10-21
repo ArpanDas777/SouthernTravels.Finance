@@ -132,3 +132,7 @@
 .doc.color .st-pending { background: #FEF3C7; color: #92400E; border-color: #B45309; }
 .doc-table-flush { margin-top: 0; }
 .doc.color .doc-table-flush th:first-child, .doc.color .doc-table-flush td:first-child { border-left-color: #8FA1BC; }
+
+/* several sheets in one printout: each starts on a new page and sits apart on screen */
+.sheet-scroll .doc + .doc { margin-top: 20px; }
+@media print { .doc.sheet-break { break-after: page; } .sheet-scroll .doc + .doc { margin-top: 0; } }

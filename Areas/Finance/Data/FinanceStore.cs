@@ -122,7 +122,7 @@ public sealed class FinanceStore
                 : new Approval { St = c.ToString() };
             Bills[s.Id] = new Bill
             {
-                St = s.Seed[0].ToString(), Date = dt, No = no, Doc = "invoice_" + no + ".pdf",
+                St = s.Seed[0].ToString(), Date = dt, No = no, Doc = "invoice_" + no + ".pdf", Voucher = "voucher_" + no + ".pdf",
                 Inv = disp ? s.Neg + 2400 : s.Neg, Rec = disp ? Fmt.Round(s.Neg * .9 / 100) * 100 : s.Neg, Upl = dt + " 10:30",
                 L1 = L(s.Seed[1], "Vijay Gupta", 1), L2 = L(s.Seed[2], i % 2 == 1 ? "Sowmya" : "Divya", 3),
             };
@@ -271,12 +271,23 @@ public sealed class FinanceStore
         }
     }
 
+    /// <summary>Changes the planned payment mode of unpaid entries not yet covered by an RTGS advice; returns how many changed.</summary>
+    public int SetPlanMode(IEnumerable<string> sids, string mode)
+    {
+        lock (Gate)
+        {
+            var set = sids.ToHashSet();
+            var open = Basket.Where(b => set.Contains(b.Sid) && !b.Paid && b.RtgsNo == null).ToList();
+            foreach (var b in open) b.Pm = mode;
+            return open.Count;
+        }
+    }
+
     /// <summary>Records one payment against every unpaid ticket of an RTGS advice; each ticket is paid its own approved payable.</summary>
     public int PayRtgs(string no, string by, string bank, string mode, string? utr, string? chequeNo, string paymentDate, string slip, Func<string, int> payable)
     {
         lock (Gate)
         {
-            var rec = RtgsLog.First(r => r.No == no);
             var n = 0;
             foreach (var b in Basket.Where(x => x.RtgsNo == no && !x.Paid))
             {

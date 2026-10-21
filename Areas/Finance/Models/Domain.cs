@@ -30,6 +30,8 @@ public sealed class Bill
     public string Date { get; set; } = "";
     public string No { get; set; } = "";
     public string Doc { get; set; } = "";
+    /// <summary>Uploaded voucher file name (only the name is stored yet).</summary>
+    public string Voucher { get; set; } = "";
     public int Inv { get; set; }
     public int Rec { get; set; }
     public string Upl { get; set; } = "";
@@ -130,7 +132,7 @@ public sealed class Svc
 /// <summary>Details shared by every ticket in one RTGS advice.</summary>
 public sealed class RtgsCommon
 {
-    /// <summary>HDFC, ICICI or Axis.</summary>
+    /// <summary>The sender account chosen in Create RTGS Advice (CBI-Delhi, CBI-Hyderabad or SBI-Hyderabad).</summary>
     public string SenderBank { get; set; } = "";
     public string ChequeNo { get; set; } = "";
     public string ChequeDate { get; set; } = "";

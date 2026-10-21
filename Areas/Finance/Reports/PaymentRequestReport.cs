@@ -12,6 +12,31 @@ public sealed partial class FinanceReports
 {
     sealed record PrRow(BasketItem B, Svc S);
 
+    /// <summary>Paid; Sent for payment (an RTGS advice has been created for it); otherwise Unpaid.</summary>
+    static string PrStatus(BasketItem b) => b.Paid ? "Paid" : b.RtgsNo != null ? "Sent for payment" : "Unpaid";
+    static string PrTone(string s) => s switch { "Paid" => "ok", "Sent for payment" => "info", _ => "warn" };
+
+    /// <summary>Vendor-level payment status: Paid once every line is, Sent for payment when only RTGS-advised lines remain, otherwise Unpaid.</summary>
+    static Line VendorPay(List<PrRow> bs)
+    {
+        int paid = bs.Count(r => r.B.Paid), sent = bs.Count(r => PrStatus(r.B) == "Sent for payment"), unpaid = bs.Count - paid - sent;
+        var label = unpaid > 0 ? "Unpaid" : sent > 0 ? "Sent for payment" : "Paid";
+        return Chip(label, PrTone(label), [new TipLine($"{paid} paid · {sent} sent for payment · {unpaid} unpaid")]);
+    }
+
+    /// <summary>
+    /// The planned payment mode, chosen per vendor right on its line. Changing it re-plans every line that is still open
+    /// (unpaid and not yet in an RTGS advice); with none open the mode is shown as a plain label.
+    /// </summary>
+    static Cell ModeCell(List<PrRow> bs)
+    {
+        var open = bs.Where(r => !r.B.Paid && r.B.RtgsNo == null).ToList();
+        if (open.Count == 0) return C(Chip(bs.Select(r => r.B.Pm ?? "RTGS").Distinct().Count() == 1 ? bs[0].B.Pm ?? "RTGS" : "Mixed", "info"));
+        var modes = open.Select(r => r.B.Pm ?? "RTGS").Distinct().ToList();
+        return C(Select(modes.Count == 1 ? modes[0] : "Mixed", [.. (modes.Count == 1 ? [] : new[] { "Mixed" }), .. FinanceOptions.PlanModes],
+            "/Finance/PaymentRequest/SetMode", open[0].S.Id, "Payment mode for " + open[0].S.V.Name));
+    }
+
     public ReportVm PaymentRequest()
     {
         var all = st.Svcs();
@@ -21,7 +46,7 @@ public sealed partial class FinanceReports
             .Where(r => PerOk(r.S.Bill?.Date ?? r.S.End)).ToList();
         var defs = new List<FDef<PrRow>>
         {
-            new("ps", "Payment Status", r => r.B.Paid ? "Paid" : "Pending", ["Pending", "Paid"]),
+            new("ps", "Payment Status", r => PrStatus(r.B), ["Unpaid", "Sent for payment", "Paid"]),
             new("pm", "Payment Mode", r => r.B.Pm ?? "RTGS", FinanceOptions.PlanModes),
             new("rg", "RTGS Advice", r => r.B.RtgsNo != null ? "Created" : "Not created", ["Created", "Not created"]),
             new("type", "Service Type", r => r.S.V.Type), new("vendor", "Vendor", r => r.S.V.Name),
@@ -33,11 +58,13 @@ public sealed partial class FinanceReports
         var paid = rows.Count(r => r.B.Paid);
         var kpis = new List<Kpi>
         {
-            K("Vendors", gs.Count, Strong), K("In Basket", rows.Count, Strong), K("Paid", paid, Green), K("Pending", rows.Count - paid, Warn),
+            K("Vendors", gs.Count, Strong), K("In Basket", rows.Count, Strong), K("Paid", paid, Green),
+            K("Sent for Payment", rows.Count(r => PrStatus(r.B) == "Sent for payment"), Blue), K("Unpaid", rows.Count(r => PrStatus(r.B) == "Unpaid"), Warn),
             K("Basket Total", Fmt.Inr(rows.Sum(r => r.S.Bill?.Rec ?? 0)), Blue),
         };
         var nh = Cols("Ticket Info", "Vendor", "Service Type / City", "Service / Conf. No.", "Service Dates", ("Vendor Payable", "right"), "Payment Mode", "Actual Payment Action", "Mgmt. Approval", "Actions");
-        var gridRows = gs.Select(g =>
+        var (pgs, pager) = Paged(gs);
+        var gridRows = pgs.Select(g =>
         {
             var v = st.V[g.Vi]; var tot = g.Bs.Sum(r => r.S.Bill?.Rec ?? 0);
             var dot = g.Dot ? Ca("center", Dot([new TipLine("New ticket(s) added")])) : Empty;
@@ -46,10 +73,10 @@ public sealed partial class FinanceReports
                 Key = "v" + g.Vi, SeenVendor = g.Dot ? v.Id : null, SeenArea = "pr", CardHead = 4,
                 Cells =
                 [
-                    dot, Txt("left", v.Id, Link, 700), Txt("left", v.Name, Strong, 600), Txt("center", g.Bs.Select(r => r.S.Ti).Distinct().Count().ToString(), w: 600, num: true), Txt("right", Fmt.Inr(tot), Link, 800, num: true),
+                    dot, Txt("left", v.Id, Link, 700), Txt("left", v.Name, Strong, 600), Txt("center", g.Bs.Select(r => r.S.Ti).Distinct().Count().ToString(), w: 600, num: true), Txt("right", Fmt.Inr(tot), Link, 800, num: true), ModeCell(g.Bs),
                     // A vendor is Approved / Paid only once every ticket in its drill-down is; otherwise Pending.
                     C(AllOrPending(g.Bs.Count(r => r.B.Mgmt == "Approved"), g.Bs.Count, "Approved", "approved")),
-                    C(AllOrPending(g.Bs.Count(r => r.B.Paid), g.Bs.Count, "Paid", "paid")),
+                    C(VendorPay(g.Bs)),
                 ],
                 Detail = new Detail
                 {
@@ -63,10 +90,9 @@ public sealed partial class FinanceReports
                             C(T(s.Name), Sub(s.Conf != "" ? s.Conf : "Pending")), Dates(s), Txt("right", Fmt.Inr(s.Bill?.Rec ?? 0), w: 700, num: true),
                             // The mode chosen at submission, plus the RTGS advice number once one covers this entry.
                             C(Chip(b.Pm ?? "RTGS", "info"), b.RtgsNo != null ? Sub(b.RtgsNo) : null),
-                            C(Chip(b.Paid ? "Paid" : "Pending", b.Paid ? "ok" : "warn")),
+                            C(Chip(PrStatus(b), PrTone(PrStatus(b)))),
                             C(Lv("Mgmt", b.Paid ? "A" : "Q", b.Paid ? [new TipLine(b.By ?? "Mounika", "", b: true), new TipLine(Fmt.Fdt(b.At))] : null)),
-                            !perm ? Txt("left", "-", Mut)
-                                  : C(Btn("Print", Pop("prAdvice", ("sid", s.Id))), b.Paid ? null : Btn("Update", Pop("prpay", ("sid", s.Id)), "primary")),
+                            C(Btn("Print", Pop("prAdvice", ("sid", s.Id))), b.Paid ? null : Btn("Update", Pop("prpay", ("sid", s.Id)), "primary")),
                         ];
                     }).ToList(),
                 },
@@ -74,13 +100,13 @@ public sealed partial class FinanceReports
         }).ToList();
 
         List<ToolBtn> tools = [new("RTGS Advice History (" + rtgsCount + ")", Pop("rtgsHist"))];
-        if (perm) tools.Add(new("Create RTGS Advice", Pop("rtgsSel"), Primary: true));
+        tools.Add(new("Create RTGS Advice", Pop("rtgsSel"), Primary: true));
         return new ReportVm
         {
-            Title = "Payment Request Report", Pill = true, Perm = perm, Kpis = kpis, Query = q,
+            Title = "Payment Request Report", Pill = true, Kpis = kpis, Query = q,
             Desc = "The payment basket, grouped by vendor and ticket — generated once Finance confirms submission from Approved Vendor Payable, for actual payment execution. A vendor with newly added tickets is marked with a red dot and moved to the top until viewed.",
             Qph = "Search Ticket No., Vendor, Service...", Filters = MkFilters(baseRows, defs), FCount = FCount(defs, false), Count = gs.Count + " vendors", Tools = tools,
-            Cols = Cols("", "", "Vendor ID", "Vendor Name", ("Tickets", "center"), ("Total Value", "right"), "Approval Status", "Payment Status"), Rows = gridRows, EmptyText = "No payment requests found.", ClearAllUrl = ClearAll,
+            Cols = Cols("", "", "Vendor ID", "Vendor Name", ("Tickets", "center"), ("Total Value", "right"), "Payment Mode", "Approval Status", "Payment Status"), Rows = gridRows, Pager = pager, EmptyText = "No payment requests found.", ClearAllUrl = ClearAll,
         };
     }
 

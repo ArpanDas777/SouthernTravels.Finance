@@ -17,7 +17,6 @@ public class AdvanceController(FinanceStore store) : FinanceControllerBase(store
     [HttpGet("Popup")]
     public IActionResult Popup(string t, string? sid)
     {
-        if (t == "advpay" && !Ctx.Perm) return Forbidden();
         if (t is not ("advpay" or "advview")) return NotFound();
         AdvanceRequest? a;
         lock (St.Gate) a = St.Adv.FirstOrDefault(x => x.Sid == sid);
@@ -55,7 +54,6 @@ public class AdvanceController(FinanceStore store) : FinanceControllerBase(store
     public IActionResult AdvancePay(string sid, decimal? pct, string? ctype, string? no, string? bank, string? mode,
         string? paymentDate, decimal? amountPaid, IFormFile? slip, string? returnUrl)
     {
-        if (!Ctx.Perm) return Forbidden();
         if (pct is not { } p || p < 0 || p > 100 || string.IsNullOrWhiteSpace(no) || string.IsNullOrWhiteSpace(bank) || string.IsNullOrWhiteSpace(mode)
             || !ValidPaymentDate(paymentDate) || amountPaid is not > 0 || slip is null)
             return Back(returnUrl, "Payment not saved — every field is required.");

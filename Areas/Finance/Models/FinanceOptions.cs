@@ -7,5 +7,5 @@ public static class FinanceOptions
     public static readonly string[] PaymentModes = ["NEFT", "RTGS", "IMPS", "Cheque", "Cash"];
     /// <summary>Planned payment modes chosen per vendor when a submission is confirmed (RTGS is the default).</summary>
     public static readonly string[] PlanModes = ["RTGS", "Physical Cheque", "E-Cheque", "Credit Card"];
-    public static readonly string[] SenderBanks = ["HDFC", "ICICI", "Axis"];
+    public static readonly string[] SenderBanks = ["CBI-Delhi", "CBI-Hyderabad", "SBI-Hyderabad"];
 }
