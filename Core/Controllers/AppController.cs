@@ -24,7 +24,7 @@ public abstract class AppController : Controller
 
     public override void OnActionExecuting(ActionExecutingContext context)
     {
-        var (_, kind, from, to) = DemoSession.Read(Request);
+        var (kind, from, to) = DemoSession.ReadPeriod(Request);
         Period = DemoSession.Range(kind, from, to);
         // The signed-in user comes from the session set at login (SessionMiddleware sends anyone without one to the login page).
         var s = HttpContext.Session;

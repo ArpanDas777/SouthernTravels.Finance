@@ -26,7 +26,7 @@ public abstract class FinanceControllerBase(IFinanceService finance) : AppContro
     protected FinanceStore St => _store ?? throw new InvalidOperationException("Finance data has not been loaded.");
     protected override AreaInfo Area => FinanceArea.Info;
 
-    FinanceReports Reports => new(St, ReportQuery.Parse(Request), Ctx.Perm, Period);
+    FinanceReports Reports => new(St, ReportQuery.Parse(Request), Period);
 
     public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
