@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
-using SouthernTravels.Areas.Finance.Data;
+using SouthernTravels.Areas.Finance.Interfaces;
 using SouthernTravels.Areas.Finance.Models;
+using SouthernTravels.Areas.Finance.Models.Api;
 using SouthernTravels.Core.Infrastructure;
 
 namespace SouthernTravels.Areas.Finance.Controllers;
 
 /// <summary>Payment Request Report: payments per ticket line, Payment Advice, Update payment and RTGS advice (create, history, letters, payment status).</summary>
 [Route("Finance/PaymentRequest")]
-public class PaymentRequestController(FinanceStore store) : FinanceControllerBase(store)
+public class PaymentRequestController(IFinanceService finance) : FinanceControllerBase(finance)
 {
     [HttpGet("")]
     public IActionResult Index() => Report("PaymentRequest", "Bill Date", r => r.PaymentRequest());
@@ -134,43 +135,50 @@ public class PaymentRequestController(FinanceStore store) : FinanceControllerBas
 
     /// <summary>Creates an RTGS advice from the tickets ticked in "Create RTGS Advice", then opens "RTGS Advice generated".</summary>
     [HttpPost("CreateRtgs")]
-    public IActionResult CreateRtgs(string[]? sid, string? senderBank, string? chequeNo, string? chequeDate, string? randomNo, string? remarks, string? returnUrl)
+    public async Task<IActionResult> CreateRtgs(string[]? sid, string? senderBank, string? chequeNo, string? chequeDate, string? randomNo, string? remarks, string? returnUrl)
     {
         var idSet = (sid ?? []).ToHashSet();
         var ok = FinanceOptions.SenderBanks.Contains(senderBank ?? "") && !string.IsNullOrWhiteSpace(chequeNo) && !string.IsNullOrWhiteSpace(randomNo)
             && DateTime.TryParseExact(chequeDate, "yyyy-MM-dd", Fmt.Inv, System.Globalization.DateTimeStyles.None, out _);
         if (!ok || idSet.Count == 0) return Back(returnUrl, "RTGS advice not created — fill every required field and choose at least one ticket.");
-        var rec = St.CreateRtgs(idSet, new RtgsCommon
+        // Only unpaid RTGS tickets not yet covered by an advice can go into a new one.
+        var pool = St.RtgsPool().Select(b => b.Sid).Where(idSet.Contains).ToList();
+        if (pool.Count == 0) return Back(returnUrl, "Those tickets are already covered by an RTGS advice.");
+        var res = await Finance.CreateRtgsAsync(pool, new RtgsCommon
         {
             SenderBank = senderBank!, ChequeNo = chequeNo!.Trim(), ChequeDate = chequeDate!, RandomNo = randomNo!.Trim(),
             Remarks = string.IsNullOrWhiteSpace(remarks) ? null : remarks.Trim(),
         }, Ctx.UserName);
-        if (rec == null) return Back(returnUrl, "Those tickets are already covered by an RTGS advice.");
-        TempData["popup"] = "/Finance/PaymentRequest/Popup?t=rtgsOut&no=" + Uri.EscapeDataString(rec.No);
-        return Back(returnUrl, "RTGS advice " + rec.No + " created.");
+        if (!res.Success || string.IsNullOrEmpty(res.RtgsNo)) return Back(returnUrl, SaveFailed(res.Message, "RTGS advice not created."));
+        TempData["popup"] = "/Finance/PaymentRequest/Popup?t=rtgsOut&no=" + Uri.EscapeDataString(res.RtgsNo);
+        return Back(returnUrl, "RTGS advice " + res.RtgsNo + " created.");
     }
 
     [HttpPost("PaymentPay")]
-    public IActionResult PaymentPay(string sid, string? bank, string? mode, string? utr, string? chequeNo,
+    public async Task<IActionResult> PaymentPay(string sid, string? bank, string? mode, string? utr, string? chequeNo,
         string? paymentDate, decimal? amountPaid, IFormFile? slip, string? returnUrl)
     {
         if (string.IsNullOrWhiteSpace(bank) || string.IsNullOrWhiteSpace(mode) || !PaymentRefOk(mode, utr, chequeNo) || !ValidPaymentDate(paymentDate) || amountPaid is not > 0 || slip is null)
             return Back(returnUrl, "Payment not saved — every field is required.");
-        St.PayRequest(sid, Ctx.UserName, bank.Trim(), mode, utr?.Trim(), chequeNo?.Trim(), paymentDate!, (int)amountPaid.Value, Path.GetFileName(slip.FileName));
-        return Back(returnUrl, "Payment recorded.");
+        if (St.Svcs().FirstOrDefault(x => x.Id == sid)?.Bk is not { Paid: false }) return Back(returnUrl, "Payment not saved — that ticket line is not awaiting payment.");
+        var res = await Finance.PayRequestAsync(sid, Ctx.UserName,
+            new PaymentEntry(bank.Trim(), mode, utr?.Trim(), chequeNo?.Trim(), paymentDate!, Path.GetFileName(slip.FileName)), (int)amountPaid.Value);
+        return Back(returnUrl, res.Success ? "Payment recorded." : SaveFailed(res.Message, "Payment not saved."));
     }
 
     /// <summary>Update Payment Status from RTGS Advice History: one set of payment details for every unpaid ticket in the advice.</summary>
     [HttpPost("RtgsPay")]
-    public IActionResult RtgsPay(string no, string? bank, string? mode, string? utr, string? chequeNo,
+    public async Task<IActionResult> RtgsPay(string no, string? bank, string? mode, string? utr, string? chequeNo,
         string? paymentDate, IFormFile? slip, string? returnUrl)
     {
         var rec = FindRtgs(no);
         if (rec == null || string.IsNullOrWhiteSpace(bank) || string.IsNullOrWhiteSpace(mode) || !PaymentRefOk(mode, utr, chequeNo) || !ValidPaymentDate(paymentDate) || slip is null)
             return Back(returnUrl, "Payment not saved — every field is required.");
-        var all = St.Svcs();
-        var n = St.PayRtgs(no, Ctx.UserName, bank.Trim(), mode, utr?.Trim(), chequeNo?.Trim(), paymentDate!, Path.GetFileName(slip.FileName),
-            sid => all.First(s => s.Id == sid).Bill?.Rec ?? 0);
-        return Back(returnUrl, n + " payment(s) recorded for " + no + ".");
+        // Every unpaid ticket of the advice is paid its own approved payable.
+        var items = PendingRtgs(rec, St.Svcs()).Select(s => new RtgsPaymentItem { ServiceID = s.Id, AmountPaid = s.Bill?.Rec ?? 0 }).ToList();
+        if (items.Count == 0) return Back(returnUrl, "Nothing to pay — every ticket in " + no + " is already paid.");
+        var res = await Finance.PayRtgsAsync(no, Ctx.UserName,
+            new PaymentEntry(bank.Trim(), mode, utr?.Trim(), chequeNo?.Trim(), paymentDate!, Path.GetFileName(slip.FileName)), items);
+        return Back(returnUrl, res.Success ? res.AffectedCount + " payment(s) recorded for " + no + "." : SaveFailed(res.Message, "Payment not saved."));
     }
 }

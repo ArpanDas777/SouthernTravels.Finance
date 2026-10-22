@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using SouthernTravels.Areas.Finance.Data;
+using SouthernTravels.Areas.Finance.Interfaces;
 using SouthernTravels.Areas.Finance.Models;
 using SouthernTravels.Core.Infrastructure;
 
@@ -7,7 +7,7 @@ namespace SouthernTravels.Areas.Finance.Controllers;
 
 /// <summary>Vendor Payable Report: bills per vendor service, plus Raise Bill / Raise Dispute / Reupload and Bill Details.</summary>
 [Route("Finance/VendorPayable")]
-public class VendorPayableController(FinanceStore store) : FinanceControllerBase(store)
+public class VendorPayableController(IFinanceService finance) : FinanceControllerBase(finance)
 {
     [HttpGet("")]
     public IActionResult Index() => Report("VendorPayable", "Bill Date", r => r.VendorPayable());
@@ -41,7 +41,7 @@ public class VendorPayableController(FinanceStore store) : FinanceControllerBase
     /* ---------- actions ---------- */
 
     [HttpPost("RaiseBill")]
-    public IActionResult RaiseBill(RaiseForm form)
+    public async Task<IActionResult> RaiseBill(RaiseForm form)
     {
         var items = form.Items.Where(i => !string.IsNullOrEmpty(i.Sid)).ToList();
         // Kind: "R" raises every service, "D" disputes every service, "D:<sid>" disputes just that one.
@@ -51,11 +51,12 @@ public class VendorPayableController(FinanceStore store) : FinanceControllerBase
         var kind = form.Kind.StartsWith("D") ? "D" : "R";
         var stamp = Clock.NowStamp();
         // The uploaded file is not stored yet; only its name is kept until a document store is connected.
-        St.RaiseBills(items.Select(i => (i.Sid, new Bill
+        var res = await Finance.RaiseBillsAsync(items.Select(i => (i.Sid, new Bill
         {
             St = kind, Date = i.Date!, No = i.No!.Trim(), Doc = Path.GetFileName(i.File!.FileName), Voucher = Path.GetFileName(i.Voucher!.FileName), Inv = (int)i.Inv!.Value, Rec = (int)i.Rec!.Value,
             Upl = stamp, L1 = new Approval { St = "Q" }, L2 = new Approval { St = "-" },
-        })));
+        })).ToList());
+        if (!res.Success) return Back(form.ReturnUrl, SaveFailed(res.Message, "Bill not saved."));
         return Back(form.ReturnUrl, kind == "R" ? $"Bill submitted for {items.Count} service(s)." : $"Dispute raised for {items.Count} service(s).");
     }
 }

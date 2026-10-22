@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
-using SouthernTravels.Areas.Finance.Data;
+using SouthernTravels.Areas.Finance.Interfaces;
 using SouthernTravels.Areas.Finance.Models;
 
 namespace SouthernTravels.Areas.Finance.Controllers;
 
 /// <summary>Vendor KYC Report: vendor records and their KYC documents.</summary>
 [Route("Finance/VendorKyc")]
-public class VendorKycController(FinanceStore store) : FinanceControllerBase(store)
+public class VendorKycController(IFinanceService finance) : FinanceControllerBase(finance)
 {
     [HttpGet("")]
     public IActionResult Index() => Report("VendorKyc", "Date of Creation", r => r.VendorKyc());

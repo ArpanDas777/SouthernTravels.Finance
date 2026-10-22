@@ -6,8 +6,13 @@ using SouthernTravels.Areas.Finance.Models;
 namespace SouthernTravels.Areas.Finance.Data;
 
 /// <summary>
-/// In-memory sample data for the Finance module (no database is connected yet).
-/// Registered as a singleton; all mutations go through <see cref="Gate"/>.
+/// The Finance report data. Two ways to get one:
+/// <list type="bullet">
+/// <item>the parameterless constructor seeds in-memory sample data (FinanceDemoService keeps one as a singleton and mutates it);</item>
+/// <item>the list constructor holds a read-only snapshot loaded from the Finance API for one request (FinanceApiService).</item>
+/// </list>
+/// Vendor, ticket and KYC lists are index-aligned: <see cref="ServiceDef.Ti"/>/<see cref="ServiceDef.Vi"/> index <see cref="T"/>/<see cref="V"/>, and K[i] is V[i]'s KYC.
+/// All mutations go through <see cref="Gate"/>.
 /// </summary>
 public sealed class FinanceStore
 {
@@ -28,6 +33,22 @@ public sealed class FinanceStore
     public List<RtgsRecord> RtgsLog { get; } = [];
     public List<AdvanceRequest> Adv { get; }
 
+    /// <summary>A snapshot built from API data (see FinanceApiMapper).</summary>
+    public FinanceStore(List<Vendor> v, List<Ticket> t, List<ServiceDef> s, List<Kyc> k, Dictionary<string, Bill> bills,
+        List<BasketItem> basket, List<AdvanceRequest> adv, List<RtgsRecord> rtgs, IEnumerable<string> newTicketVendors, IEnumerable<string> newBillVendors)
+    {
+        V = v; T = t; S = s; K = k; Bills = bills; Basket = basket; Adv = adv; RtgsLog = rtgs;
+        Dots = newTicketVendors.Distinct().ToDictionary(id => id, _ => true);
+        NewBills = newBillVendors.Distinct().ToDictionary(id => id, _ => true);
+    }
+
+    /// <summary>No data: used when the API could not be reached, so the pages still render (with an error toast).</summary>
+    public static FinanceStore Empty() => new([], [], [], [], new(), [], [], [], [], []);
+
+    /// <summary>The service definition with this id.</summary>
+    ServiceDef Def(string sid) => S.First(x => x.Id == sid);
+
+    /// <summary>Seeds the in-memory sample data.</summary>
     public FinanceStore()
     {
         static string D4(string s) => "2026-" + s[..2] + "-" + s[2..];
@@ -207,7 +228,7 @@ public sealed class FinanceStore
             foreach (var (sid, bill) in bills)
             {
                 Bills[sid] = bill;
-                NewBills[V[S[int.Parse(sid[1..])].Vi].Id] = true;
+                NewBills[V[Def(sid).Vi].Id] = true;
             }
         }
     }
@@ -219,7 +240,7 @@ public sealed class FinanceStore
         lock (Gate)
         {
             var sel = AwaitingSubmission(Svcs()).Where(s => ids.Contains(s.Id)).ToList();
-            var had = Basket.Select(b => S[int.Parse(b.Sid[1..])].Vi).ToHashSet();
+            var had = Basket.Select(b => Def(b.Sid).Vi).ToHashSet();
             foreach (var vi in sel.Select(s => s.Vi).Distinct())
                 if (had.Contains(vi)) Dots[V[vi].Id] = true;
             Basket.AddRange(sel.Select(s => new BasketItem { Sid = s.Id, Pm = modes.GetValueOrDefault(s.Vi, "RTGS") }));
@@ -253,8 +274,7 @@ public sealed class FinanceStore
         lock (Gate)
         {
             var a = Adv.First(x => x.Sid == sid);
-            pay.Tds = Fmt.Round((double)(a.Amt * pay.Pct / 100));
-            pay.Net = a.Amt - pay.Tds;
+            pay.Settle(a.Amt);
             pay.Date = NowStamp();
             a.Pay = pay;
         }
