@@ -1,0 +1,49 @@
+@model SouthernTravels.Core.Models.Auth.LoginVm
+@{
+    Layout = null;
+    var hasEmail = !string.IsNullOrEmpty(Model.Email);
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login · Southern Travels Finance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Public+Sans:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="~/css/tokens.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/login.css" asp-append-version="true">
+</head>
+<body class="login-page">
+    <main class="login-card">
+        <img src="~/img/logo-southern.png" alt="Southern Travels" class="login-logo">
+        <h1 class="login-title">Finance <span>Login</span></h1>
+        <p class="login-sub">Sign in with the one-time password sent to your work email.</p>
+
+        <div class="login-msg login-msg-error" id="login-error" role="alert" @(string.IsNullOrEmpty(Model.Error) ? "hidden" : null)>@Model.Error</div>
+        <div class="login-msg login-msg-info" id="login-info" role="status" @(string.IsNullOrEmpty(Model.Info) ? "hidden" : null)>@Model.Info</div>
+
+        <form id="login-form" method="post" action="/Account/ValidateOTP" novalidate>
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="RedirectUrl" value="@Model.ReturnUrl">
+
+            <label class="login-label" for="email">Email address <span class="req">*</span></label>
+            <div class="login-row">
+                <input type="email" id="email" name="EmailId" class="login-input" value="@Model.Email" placeholder="name@southerntravels.com"
+                       autocomplete="username" required autofocus="@(!hasEmail)">
+                <button type="button" id="send-otp" class="login-btn login-btn-secondary" data-send-url="/Account/SendOTP">Send OTP</button>
+            </div>
+            <p class="login-hint" id="otp-timer" hidden>You can resend the OTP in <span id="countdown">60</span>s</p>
+
+            <div id="otp-section" @(hasEmail ? null : "hidden")>
+                <label class="login-label" for="otp">OTP <span class="req">*</span></label>
+                <input type="text" id="otp" name="OTPCode" class="login-input login-otp" maxlength="6" inputmode="numeric" pattern="[0-9]{6}"
+                       autocomplete="one-time-code" placeholder="••••••" autofocus="@hasEmail">
+                <button type="submit" id="verify" class="login-btn login-btn-primary">Verify &amp; Login</button>
+            </div>
+        </form>
+    </main>
+    <script src="~/js/login.js" asp-append-version="true"></script>
+</body>
+</html>

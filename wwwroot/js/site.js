@@ -359,7 +359,24 @@
                     .every(i => i.type === 'file' ? i.files.length > 0 : i.value.trim() !== '');
             });
         };
-// Scan: fetch a scanned document from the scanner service on this PC and drop it into the file field next to the button.        form.addEventListener('click', async e => {            const btn = e.target.closest('[data-scan]');            if (!btn) return;            const input = $('input[type=file]', btn.parentElement);            if (!btn.dataset.scanUrl) { showToast('No scanner is configured (Scanner:Url in appsettings.json).'); return; }            btn.disabled = true; btn.textContent = 'Scanning…';            try {                const res = await fetch(btn.dataset.scanUrl, { method: 'POST' });                if (!res.ok) throw new Error(res.status);                const blob = await res.blob(), ext = blob.type.includes('pdf') ? 'pdf' : blob.type.includes('png') ? 'png' : 'jpg';                const dt = new DataTransfer();                dt.items.add(new File([blob], 'scan-' + Date.now() + '.' + ext, { type: blob.type }));                input.files = dt.files;                input.dispatchEvent(new Event('change', { bubbles: true }));            } catch (err) { showToast('Scanner not reachable — check the scanner service is running.'); }            btn.disabled = false; btn.textContent = 'Scan';        });
+        // Scan: fetch a scanned document from the scanner service on this PC and drop it into the file field next to the button.
+        form.addEventListener('click', async e => {
+            const btn = e.target.closest('[data-scan]');
+            if (!btn) return;
+            const input = $('input[type=file]', btn.parentElement);
+            if (!btn.dataset.scanUrl) { showToast('No scanner is configured (Scanner:Url in appsettings.json).'); return; }
+            btn.disabled = true; btn.textContent = 'Scanning…';
+            try {
+                const res = await fetch(btn.dataset.scanUrl, { method: 'POST' });
+                if (!res.ok) throw new Error(res.status);
+                const blob = await res.blob(), ext = blob.type.includes('pdf') ? 'pdf' : blob.type.includes('png') ? 'png' : 'jpg';
+                const dt = new DataTransfer();
+                dt.items.add(new File([blob], 'scan-' + Date.now() + '.' + ext, { type: blob.type }));
+                input.files = dt.files;
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            } catch (err) { showToast('Scanner not reachable — check the scanner service is running.'); }
+            btn.disabled = false; btn.textContent = 'Scan';
+        });
         form.addEventListener('input', validate);
         form.addEventListener('change', e => {
             const el = e.target;
