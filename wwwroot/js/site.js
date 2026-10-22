@@ -295,6 +295,8 @@
         root.hidden = false;
         try {
             const res = await fetch(url, { headers: { 'X-Requested-With': 'fetch' } });
+            // Session expired: log in again and come back to this page.
+            if (res.status === 401) { location.href = '/Account/Login?expired=true&returnUrl=' + encodeURIComponent(location.pathname + location.search); return; }
             if (!res.ok) throw new Error(res.status);
             root.innerHTML = await res.text();
         } catch (e) {

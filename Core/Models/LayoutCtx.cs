@@ -6,8 +6,11 @@ public sealed record NavItem(string Controller, string Label, string Icon, strin
 /// <summary>Everything the shared layout needs: who is signed in, the period filter, the area's menu, toast and auto-popup.</summary>
 public sealed class LayoutCtx
 {
-    public string UserName { get; init; } = "Administrator";
-    public string UserRole { get; init; } = "Administrator";
+    public string User { get; init; } = "admin";
+    public string UserName { get; init; } = "";
+    public string UserRole { get; init; } = "";
+    /// <summary>Can use the action buttons (Raise Bill, Submit, Update Payment...). Every signed-in user can until roles come from the API.</summary>
+    public bool Perm { get; init; } = true;
 
     /// <summary>The area being shown (e.g. "Finance"): names the product in the header and the menu heading.</summary>
     public string AreaName { get; init; } = "";

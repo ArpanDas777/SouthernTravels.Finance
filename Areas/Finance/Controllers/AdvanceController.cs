@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using SouthernTravels.Areas.Finance.Data;
+using SouthernTravels.Areas.Finance.Interfaces;
 using SouthernTravels.Areas.Finance.Models;
 using SouthernTravels.Core.Infrastructure;
 
@@ -7,7 +7,7 @@ namespace SouthernTravels.Areas.Finance.Controllers;
 
 /// <summary>Advance Report: fully approved advance requests, Update Payment and the printable Advance Advice.</summary>
 [Route("Finance/Advance")]
-public class AdvanceController(FinanceStore store) : FinanceControllerBase(store)
+public class AdvanceController(IFinanceService finance) : FinanceControllerBase(finance)
 {
     [HttpGet("")]
     public IActionResult Index() => Report("Advance", "Advance Requested Date", r => r.Advance());
@@ -51,18 +51,21 @@ public class AdvanceController(FinanceStore store) : FinanceControllerBase(store
     /* ---------- actions ---------- */
 
     [HttpPost("AdvancePay")]
-    public IActionResult AdvancePay(string sid, decimal? pct, string? ctype, string? no, string? bank, string? mode,
+    public async Task<IActionResult> AdvancePay(string sid, decimal? pct, string? ctype, string? no, string? bank, string? mode,
         string? paymentDate, decimal? amountPaid, IFormFile? slip, string? returnUrl)
     {
         if (pct is not { } p || p < 0 || p > 100 || string.IsNullOrWhiteSpace(no) || string.IsNullOrWhiteSpace(bank) || string.IsNullOrWhiteSpace(mode)
             || !ValidPaymentDate(paymentDate) || amountPaid is not > 0 || slip is null)
             return Back(returnUrl, "Payment not saved — every field is required.");
+        AdvanceRequest? req;
+        lock (St.Gate) req = St.Adv.FirstOrDefault(x => x.Sid == sid);
+        if (req is not { L1: "A", L2: "A", Pay: null }) return Back(returnUrl, "Payment not saved — that advance is not open for payment.");
         // The uploaded slip is not stored yet; only its name is kept until a document store is connected.
-        St.PayAdvance(sid, new AdvancePayment
+        var res = await Finance.PayAdvanceAsync(sid, req.Amt, new AdvancePayment
         {
             Pct = p, CType = ctype == "Online" ? "Online" : "Physical Cheque", No = no.Trim(), Bank = bank.Trim(), Mode = mode,
             PaymentDate = paymentDate!, AmountPaid = (int)amountPaid.Value, Slip = Path.GetFileName(slip.FileName),
         });
-        return Back(returnUrl, "Payment updated.");
+        return Back(returnUrl, res.Success ? "Payment updated." : SaveFailed(res.Message, "Payment not saved."));
     }
 }

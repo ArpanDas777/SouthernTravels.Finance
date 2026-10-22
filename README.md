@@ -50,9 +50,54 @@ Each report controller owns its report page (`Index`), its pop-ups (`/Finance/<R
 
 **Adding another area** (for example HR): create `Areas/HR/` with its own `Controllers`, `Models`, `Views` and an `HrArea.cs` (name, menu, home page); derive a base controller from `AppController`, mark it `[Area("HR")]` and give each controller a `[Route("HR/<Page>")]`. Its views only need an `_ViewImports.cshtml` and `_ViewStart.cshtml` like the Finance ones. The layout, pop-up frame and report grid come from Core. Register the area's data store in `Program.cs`.
 
+## API flow (same as STPLCostSheet)
+
+Data is read and saved through an API, in the same layers as STPLCostSheet:
+
+```
+Controller  ->  IFinanceService  ->  FinanceApiService : BaseApiService  ->  IApiClientHelper.PostAsync  ->  Finance API
+                                     (URL = FinanceAPI:ApiUrl + "Finance/" + action, user + token from the session)
+```
+
+| Piece | File | STPLCostSheet equivalent |
+|---|---|---|
+| HTTP POST + error handling | `Core/Helpers/ApiClientHelper.cs`, `IApiClientHelper.cs` | `Helpers/ApiClientHelper.cs` |
+| Base URL + `BuildUrl` + `Fail` | `Core/Common/BaseApiService.cs` | `COMMON/BaseApiService.cs` |
+| API error body | `Core/Common/ApiErrorResponse.cs` | `COMMON/ApiErrorResponse.cs` |
+| Session user/token | `Core/Security/SessionSecurityService.cs` | `Security/SessionSecurityService.cs` |
+| Session + error middleware | `Core/Common/SessionMiddleware.cs`, `GlobalExceptionMiddleware.cs` | `COMMON/...Middleware.cs` |
+| Endpoint names | `Areas/Finance/Common/FinanceApiEndpoints.cs` | `COMMON/ApiEndpoints.cs` |
+| Request / response models | `Areas/Finance/Models/Api/` | `Models/Operation/`, `ApiResponseViewModel` |
+| Service interface + API service | `Areas/Finance/Interfaces/IFinanceService.cs`, `Services/FinanceApiService.cs` | `IOperationService`, `OperationService` |
+
+- **Switch:** `appsettings.json` → `FinanceSettings:UseApi`. `false` (default) uses `FinanceDemoService`, the in-memory sample data, so the UI runs before the API exists. `true` uses `FinanceApiService`.
+- **Endpoint names are placeholders.** Rename the constants in `FinanceApiEndpoints.cs` and the JSON field names in `Models/Api/` to match the backend when it is built.
+- **Every request** carries `TenantID`, `UserId`, `UserName` and `SecurityKey` from the session, like STPLCostSheet. They are set at login (below).
+- **Reading:** before each Finance action, `FinanceControllerBase` calls `GetStoreAsync()`. The API service loads the nine lists in parallel and `FinanceApiMapper` turns them into the `FinanceStore` shape the reports already use, so the report code is unchanged. If the API fails, the page shows empty with an error toast.
+- **Saving:** each POST action calls the matching service method (Raise Bill, Submit to Payment Request, Create RTGS, Update Payment, RTGS payment status, Advance payment, Mark seen). A failed save shows the API's message as a toast.
+
+## Login (OTP, same as STPLCostSheet)
+
+Every page needs a login. Without one, `Core/Common/SessionMiddleware.cs` redirects to `/Account/Login?returnUrl=…` (pop-ups get 401 and `site.js` sends the browser there), and after logging in you land back on the page you asked for.
+
+1. Enter your email → **Send OTP** calls `AuthAPI:ApiUrl` + `Account/SendOTP`.
+2. Enter the 6-digit OTP → **Verify & Login** calls `Account/ValidateUserOTP`.
+3. On success the session gets the same keys STPLCostSheet sets: `UserId`, `UserName`, `Email`, `HandlingBranch`, `accessToken`, `refreshToken`, `IsAdmin`, `TenantId`, `LoginTime`. The access token is the `SecurityKey` sent to the Finance API.
+
+| Piece | File |
+|---|---|
+| Login page, send / validate OTP, logout | `Core/Controllers/AccountController.cs`, `Core/Views/Account/Login.cshtml`, `wwwroot/css/login.css`, `wwwroot/js/login.js` |
+| Account API calls | `Core/Services/AccountService.cs` (`IAccountService`), `Core/Common/AccountApiEndpoints.cs` |
+| Request / response models | `Core/Models/Auth/LoginModels.cs` |
+
+- The signed-in name, role (Administrator / User) and branch show at the bottom of the side menu, with a **Log out** button.
+- The session lasts 30 minutes of inactivity.
+- Send OTP and Verify are limited to 5 tries per minute per IP address (`loginLimit` in `Program.cs`).
+- Every signed-in user can use the action buttons (`LayoutCtx.Perm`) until roles come from the API.
+
 ## How it fits together
 
-- `Areas/Finance/Data/FinanceStore.cs`: in-memory sample data (vendors, tickets, services, bills, advances, KYC). It is a singleton, so it resets on restart. Replace it with a real data source.
+- `Areas/Finance/Data/FinanceStore.cs`: the report data. Its parameterless constructor seeds the in-memory sample data (a singleton in demo mode, so it resets on restart); with the API on, a new snapshot is built from the API for each request.
 - `Areas/Finance/Reports/`: builds each report from the store: KPIs, filters, grouping, rows and expanded detail.
 - `Core/Views/Shared/Report.cshtml`: one view renders every report (title, KPIs, tabs, toolbar, filters, grid, pager).
 - `Areas/Finance/Views/<Report>/Popups/*.cshtml`: the pop-ups. `site.js` fetches them into a modal; their forms post back to the owning controller.
@@ -107,7 +152,7 @@ Breakpoints are CSS media queries in `wwwroot/css/site.css` (the "Responsive" se
 
 The header is 48px with the logo, title, search and bell. The signed-in user's avatar, name and role sit at the bottom of the rail. KPIs are a strip of one-line 34px tiles. Every printable document (Advance Advice, RTGS letters, Payment Advice) is portrait A4 and scrolls sideways inside its frame on small screens.
 
-Report state (search, view, filters, sort, page) is kept in the query string. The period filter (on the right of each report's title row) is kept in a cookie. There is no sign-in yet: everyone is the Administrator, so actions are always enabled.
+Report state (search, view, filters, sort, page) is kept in the query string. The period filter (on the right of each report's title row) is kept in a cookie. The signed-in user comes from the OTP login (see Login).
 
 ### Recording payments
 

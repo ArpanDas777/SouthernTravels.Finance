@@ -60,6 +60,8 @@ input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible
 .who { line-height: 1.25; min-width: 0; }
 .who-name { color: var(--nav-ink-strong); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .who-role { color: var(--nav-label); font-size: 10px; white-space: nowrap; }
+.side-logout { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: var(--radius-sm); color: var(--nav-icon); flex: none; }
+.side-logout:hover, .side-logout:focus-visible { background: var(--nav-active); color: var(--nav-ink); }
 
 .content { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; }
 .main { padding: 8px 20px 12px; display: flex; flex-direction: column; gap: 12px; min-width: 0; flex: 1; min-height: 0; overflow-y: auto; }

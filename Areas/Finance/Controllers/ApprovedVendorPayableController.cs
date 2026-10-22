@@ -1,13 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
-using SouthernTravels.Areas.Finance.Data;
+using SouthernTravels.Areas.Finance.Interfaces;
 using SouthernTravels.Areas.Finance.Models;
+using SouthernTravels.Areas.Finance.Models.Api;
 using SouthernTravels.Core.Infrastructure;
 
 namespace SouthernTravels.Areas.Finance.Controllers;
 
 /// <summary>Approved Vendor Payable: billed services awaiting submission, the cart and the Payment Submission Advice.</summary>
 [Route("Finance/ApprovedVendorPayable")]
-public class ApprovedVendorPayableController(FinanceStore store) : FinanceControllerBase(store)
+public class ApprovedVendorPayableController(IFinanceService finance) : FinanceControllerBase(finance)
 {
     [HttpGet("")]
     public IActionResult Index() => Report("ApprovedVendorPayable", "Bill Date", r => r.ApprovedVendorPayable());
@@ -52,14 +53,23 @@ public class ApprovedVendorPayableController(FinanceStore store) : FinanceContro
     /* ---------- actions ---------- */
 
     [HttpPost("Submit")]
-    public IActionResult Submit(string ids, string? returnUrl)
+    public async Task<IActionResult> Submit(string ids, string? returnUrl)
     {
         var idSet = (ids ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
         // Planned payment mode per vendor, posted as mode_<vendor index> from the advice; RTGS when missing.
         var modes = new Dictionary<int, string>();
         foreach (var kv in Request.Form.Where(f => f.Key.StartsWith("mode_")))
             if (int.TryParse(kv.Key[5..], out var vi) && vi >= 0 && vi < St.V.Count && FinanceOptions.PlanModes.Contains(kv.Value.ToString())) modes[vi] = kv.Value.ToString();
-        var n = St.Submit(idSet, modes);
+        // Only services still awaiting submission are sent, each with its vendor's planned mode.
+        List<Svc> sel;
+        lock (St.Gate) sel = St.AwaitingSubmission(St.Svcs()).Where(s => idSet.Contains(s.Id)).ToList();
+        if (sel.Count == 0) return Back(returnUrl, "Nothing sent — those services are no longer awaiting submission.");
+        var res = await Finance.SubmitToPaymentRequestAsync(sel.Select(s => new PaymentSubmitItem
+        {
+            ServiceID = s.Id, VendorId = s.V.Id, PlannedPaymentMode = modes.GetValueOrDefault(s.Vi, "RTGS"),
+        }).ToList());
+        if (!res.Success) return Back(returnUrl, SaveFailed(res.Message, "Nothing sent."));
+        var n = res.AffectedCount;
         return n == 0 ? Back(returnUrl, "Nothing sent — those services are no longer awaiting submission.")
                       : Back(returnUrl, n + " service(s) sent to Payment Request Report.");
     }

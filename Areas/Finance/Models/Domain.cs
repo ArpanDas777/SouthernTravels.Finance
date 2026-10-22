@@ -77,6 +77,13 @@ public sealed class AdvancePayment
     public string No { get; set; } = "";
     public string Bank { get; set; } = "";
     public string Mode { get; set; } = "";
+
+    /// <summary>Works out TDS (from <see cref="Pct"/>) and the net payable for an advance of <paramref name="advanceAmount"/>.</summary>
+    public void Settle(int advanceAmount)
+    {
+        Tds = Fmt.Round((double)(advanceAmount * Pct / 100));
+        Net = advanceAmount - Tds;
+    }
 }
 
 public sealed class AdvanceRequest
@@ -149,3 +156,6 @@ public sealed class RtgsRecord
     public List<string> Sids { get; set; } = [];
     public RtgsCommon Common { get; set; } = new();
 }
+
+/// <summary>Payment details entered in Update Payment Details / Update Payment Status. Slip is the uploaded file's name.</summary>
+public sealed record PaymentEntry(string Bank, string Mode, string? Utr, string? ChequeNo, string PaymentDate, string Slip);
