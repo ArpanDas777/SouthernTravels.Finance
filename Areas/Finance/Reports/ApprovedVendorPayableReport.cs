@@ -7,32 +7,35 @@ using static SouthernTravels.Areas.Finance.Models.FinanceG;
 
 namespace SouthernTravels.Areas.Finance.Reports;
 
-/// <summary>Approved Vendor Payable report.</summary>
+/// <summary>Approved Vendor Payable report (shown as Fund Management).</summary>
 public sealed partial class FinanceReports
 {
-    /// <summary>Unpaid (not yet submitted), Sent for payment (in the payment basket, unpaid) or Paid.</summary>
-    static string PayStatus(Svc s) => s.Bk == null ? "Unpaid" : s.Bk.Paid ? "Paid" : "Sent for payment";
+    /// <summary>Pending (not yet submitted), Sent for payment (in the payment basket, unpaid) or Paid.</summary>
+    static string PayStatus(Svc s) => s.Bk == null ? "Pending" : s.Bk.Paid ? "Paid" : "Sent for payment";
     static string PayStatusTone(string s) => s switch { "Paid" => "ok", "Sent for payment" => "info", _ => "warn" };
 
     public ReportVm ApprovedVendorPayable()
     {
         var all = st.Svcs();
         var view = q.View == "ticket" ? "ticket" : "vendor";
-        // Billed, operated services of confirmed tickets. Those already in the payment basket stay listed as "Sent for payment"
-        // but cannot be ticked and are left out of the KPIs.
-        var pool = all.Where(s => s.Bill != null && s.Ops != 'N' && s.T.Status != "Pending" && PerOk(s.Bill.Date)).ToList();
+        // Uploaded (not disputed) bills approved at both L1 and L2, on confirmed, operated services. Filtering is by bill: a ticket with one
+        // disputed bill still lists its other approved bills. Services already in the payment basket stay listed ("Sent for payment" / "Paid")
+        // but cannot be ticked.
+        var pool = all.Where(s => s.BStat == "R" && s.Ops != 'N' && s.T.Status != "Pending" && PerOk(s.Bill!.Date)).ToList();
         var defs = new List<FDef<Svc>>
         {
-            new("type", "Service Type", s => s.V.Type), new("bs", "Bill Status", s => BillTxt[s.Bill!.St], ["Uploaded", "Disputed"]),
-            new("ps", "Payment Status", PayStatus, ["Unpaid", "Sent for payment", "Paid"]),
+            new("type", "Service Type", s => s.V.Type),
+            new("ps", "Payment Status", PayStatus, ["Pending", "Sent for payment", "Paid"]),
             new("ex", "Booking Executive", s => s.T.Exec), new("br", "Booking Branch", s => s.T.Branch),
         };
-        var rows = ApplyF(pool, defs).Where(s => SearchOk(s.T.Id, s.V.Name, s.T.Pax)).ToList();
+        var rows = ApplyF(pool, defs).Where(s => SearchOk(s.T.Id, s.V.Name, s.V.LegalName, s.T.Pax)).ToList();
+        // Money cards read "₹amount (count)" on the bill amount.
+        string Money(IEnumerable<Svc> ss) { var l = ss.ToList(); return Fmt.Inr(l.Sum(s => s.Bill!.Rec)) + " (" + l.Count + ")"; }
         var kpis = new List<Kpi>
         {
-            K("Total Vendor", rows.Select(s => s.Vi).Distinct().Count(), Strong), K("Total Payable Bills", rows.Count, Blue),
-            K("Total Payable Value", Fmt.Inr(rows.Sum(s => s.Bill!.Rec)), Blue),
-            K("Paid Bill", rows.Count(s => s.Bk is { Paid: true }), Green), K("Unpaid Bills", rows.Count(s => s.Bk is not { Paid: true }), Red),
+            K("Total Vendors", rows.Select(s => s.Vi).Distinct().Count(), Strong), K("Total Bills", Money(rows), Blue),
+            K("Sent for Payment", Money(rows.Where(s => s.Bk is { Paid: false })), Blue), K("Paid", Money(rows.Where(s => s.Bk is { Paid: true })), Green),
+            K("Pending", Money(rows.Where(s => s.Bk == null)), Warn),
         };
 
         // Ageing sort: oldest-first / newest-first by each group's bill dates.
@@ -46,29 +49,34 @@ public sealed partial class FinanceReports
             _ => gs.OrderBy(g => g.Key),
         };
 
-        Cell Chk(Svc s) => s.Bk == null ? C(FinanceG.Chk(s, "avp", s.Bill!.Rec, "Bill " + s.Bill.No + " · " + Fmt.Fd(s.Bill.Date))) : Empty;
+        Cell Chk(Svc s) => s.Bk == null && !readOnly ? C(FinanceG.Chk(s, "avp", s.Bill!.Rec, "Bill " + s.Bill.No + " · " + Fmt.Fd(s.Bill.Date))) : Empty;
         static List<TipLine> GtTip(Ticket t) =>
             [new("Base Price", Fmt.Inr(t.Base)), new("Discount", "−" + Fmt.Inr(t.Disc), c: "red"), new("GST", "+" + Fmt.Inr(t.Gst), c: "blue"), new("Grand Total", Fmt.Inr(t.Grand), b: true, rule: true)];
         static Cell Aging(Svc s)
         {
-            var d = Fmt.Days(s.Bill!.Date, Clock.Today);
+            var d = Math.Max(0, Fmt.Days(s.Bill!.Date, Clock.Today));
             return Txt("right", d + "d", d > 14 ? Red : d > 7 ? Warn : Mut, d > 7 ? 600 : 400, num: true);
         }
-        static Cell Period(Svc s) => C(T(s.Name), Sub((s.Conf != "" ? s.Conf : "Pending") + " · " + Fmt.Fd(s.Start) + " – " + Fmt.Fd(s.End)));
-        static Cell TicketInfo(Svc s) => C(T(s.T.Id, Link, 700), Sub(s.T.Mbk), Chip(s.T.Status, ChipTone(s.T.Status)));
         static Cell PriceInfo(Ticket t)
         {
             var tb = t.Grand - t.Paid;
             return Ca("right", T(Fmt.Inr(t.Grand), num: true, dot: true, tip: GtTip(t)), T("Paid " + Fmt.Inr(t.Paid), Green, s: 11, num: true), T("Bal. " + (tb > 0 ? Fmt.Inr(tb) : "Nil"), tb > 0 ? Red : Green, s: 11, num: true));
         }
+        // Columns after the vendor / ticket cells, the same in both views.
         List<Cell> Common(Svc s) =>
         [
-            Ca("right", T("Sell " + Fmt.Inr(s.Sell), num: true), T("Cont. " + Fmt.Inr(s.Contr), Mut, s: 11, num: true), T("Neg. " + Fmt.Inr(s.Neg), Blue, 700, 11, num: true)),
-            Variation(s), ProfitCell(s, 700), C(Chip(s.Status, ChipTone(s.Status))),
-            Ca("right", T(s.AdvPaid > 0 ? Fmt.Inr(s.AdvPaid) : "-", s.AdvPaid > 0 ? Green : Mut, num: true), T(s.Bal > 0 ? Fmt.Inr(s.Bal) : "Nil", s.Bal > 0 ? Red : Green, 600, num: true)),
-            Aging(s), C(Chip(PayStatus(s), PayStatusTone(PayStatus(s)))), C(Btn("View", Pop("viewbill", ("id", s.Id)))),
+            SvcCell(s), Txt("left", Fmt.Fd(s.Start), num: true), Txt("left", Fmt.Fd(s.End), num: true), Txt("center", s.DurText, Mut, s: 11),
+            // Bill amount on top (highlighted), then the bill date and number.
+            Ca("right", T(Fmt.Inr(s.Bill!.Inv), x: "color:var(--calc-ink);font-weight:800;font-size:13px;", num: true), T(Fmt.Fd(s.Bill.Date), num: true), Sub(s.Bill.No)),
+            Ca("right", T("Sell " + Fmt.Inr(s.Sell), num: true),
+                T("Neg. " + Fmt.Inr(s.Neg), x: "display:inline-block;padding:1px 6px;border-radius:5px;border:1px solid var(--info-rule);background:var(--info-bg);color:var(--calc-ink);font-weight:800;font-size:13px;", num: true)),
+            BillVariance(s), Txt("right", Fmt.Inr(s.Profit), s.Profit < 0 ? Red : Green, 700, num: true),
+            Ca("right", T("Adv " + (s.AdvPaid > 0 ? Fmt.Inr(s.AdvPaid) : "-"), s.AdvPaid > 0 ? Green : Mut, num: true), T("Bal " + (s.Bal > 0 ? Fmt.Inr(s.Bal) : "Nil"), s.Bal > 0 ? Red : Green, 600, num: true)),
+            Aging(s), C(Chip(PayStatus(s), PayStatusTone(PayStatus(s)))),
+            Ca("center", Btn("View Bill", Pop("viewbill", ("id", s.Id))), Btn("View Docs", Pop("avpdocs", ("id", s.Id)))),
         ];
-        object[] cmnH = [("Service Price Info", "right"), ("Variation", "right"), ("Profit (SP-CP) / %", "right"), "Service Status", ("Adv. Paid / Balance", "right"), ("Aging", "right"), "Payment Status", "Bill"];
+        object[] cmnH = ["Service / Conf. No.", "Start Date", "End Date", ("Duration", "center"), ("Bill Date / No. / Amount", "right"), ("Service Price Info", "right"), ("Variance", "right"),
+            ("Profit", "right"), ("Adv. Paid / Balance", "right"), ("Aging", "right"), "Payment Status", ("Bill", "center")];
 
         List<Col> cols; List<Row> gridRows; string count; PagerVm pager;
         if (view == "vendor")
@@ -86,8 +94,8 @@ public sealed partial class FinanceReports
             List<int> newB; lock (st.Gate) newB = order.Where(vi => st.NewBills.GetValueOrDefault(st.V[vi].Id)).ToList();
             order = [.. order.Where(newB.Contains), .. order.Where(v => !newB.Contains(v))];   // vendors with the red dot first
             count = order.Count + " vendors";
-            var nh = Cols([.. new object[] { "", "Ticket Info", ("Price Info", "right"), "Bill Date / No.", "Service / Conf. No. / Period" }, .. cmnH]);
-            cols = ActionLast(Cols("", "", "Vendor ID", "Vendor Name", "Service Type", "City", ("Total Business", "right"), ("Total Contracted", "right"), ("Total Negotiated", "right"), ("Total Profit", "right"), ("Total Unbilled Tickets", "center"), "Bill"));
+            var nh = Cols([.. new object[] { "", "Ticket Info", ("Ticket Details", "right"), ("Service Type / City", "center") }, .. cmnH]);
+            cols = ActionLast(Cols("", "", "Vendor ID", "Vendor Name", ("Total Business", "right"), ("Total Contracted", "right"), ("Total Negotiated", "right"), ("Total Profit", "right"), ("Total Unbilled Tickets", "center"), "Bill"));
             var (pOrder, pg) = Paged(order); pager = pg;
             gridRows = pOrder.Select(vi =>
             {
@@ -99,7 +107,7 @@ public sealed partial class FinanceReports
                     Key = "v" + vi, SeenVendor = newB.Contains(vi) ? v.Id : null, SeenArea = "avp", CardHead = 4,
                     Cells =
                     [
-                        dot, Txt("left", v.Id, Link, 700), Txt("left", v.Name, Strong, 600), C(Pill(v.Type)), Txt("left", v.City, Mut),
+                        dot, Txt("left", v.Id, Link, 700), VendorCell(v),
                         Txt("right", ss.Count > 0 ? Fmt.Inr(neg) : "-", Link, 800, num: true), Txt("right", ss.Count > 0 ? Fmt.Inr(cp) : "-", num: true), Txt("right", ss.Count > 0 ? Fmt.Inr(neg) : "-", Blue, num: true),
                         ss.Count > 0 ? Ca("right", T(Fmt.Inr(pr), pr < 0 ? Red : Green, 700, num: true), T(Fmt.Pct(pr, cp), Mut, s: 10.5)) : Txt("right", "-", Mut),
                         Ca("center", Chip(ub.ToString(), ub > 0 ? "warn" : "ok")),
@@ -108,7 +116,7 @@ public sealed partial class FinanceReports
                     Detail = ss.Count == 0 ? null : new Detail
                     {
                         Cols = nh,
-                        Rows = ss.OrderBy(s => s.Ti).Select(List<Cell> (s) => [Chk(s), TicketInfo(s), PriceInfo(s.T), C(T(Fmt.Fd(s.Bill!.Date), num: true), Sub(s.Bill.No)), Period(s), .. Common(s)]).ToList(),
+                        Rows = ss.OrderBy(s => s.Ti).Select(List<Cell> (s) => [Chk(s), TicketInfo(s.T), PriceInfo(s.T), Ca("center", Pill(s.V.Type), Sub(s.V.City)), .. Common(s)]).ToList(),
                     },
                 };
             }).ToList();
@@ -117,31 +125,29 @@ public sealed partial class FinanceReports
         {
             var gs = Sorted(rows.GroupBy(s => s.Ti)).ToList();
             count = gs.Count + " tickets";
-            var nh = Cols([.. new object[] { "", "Vendor", "Service Type / City", "Service / Conf. No. / Period" }, .. cmnH]);
-            cols = Cols("", "Ticket / MBK", ("Tour Base Price", "right"), ("Additional Profit", "right"), ("Discount", "right"), ("GST", "right"), ("Grand Total", "right"), ("Paid by Customer", "right"), ("Balance Pending", "right"), "Ticket Status", "Bill Date / No.", "Payment Status", ("Recommended Amt.", "right"));
+            var nh = Cols([.. new object[] { "", "Vendor", ("Service Type / City", "center") }, .. cmnH]);
+            cols = Cols("", "Ticket Info", ("Tour Base Price", "right"), ("Discount", "right"), ("GST", "right"), ("Grand Total", "right"), ("Paid / Balance Pending", "right"), ("Ticket Status", "center"), ("Status", "center"));
             var (pgs, pg) = Paged(gs); pager = pg;
             gridRows = pgs.Select(g =>
             {
-                var ss = g.ToList(); var t = ss[0].T;
-                int pay = ss.Sum(s => s.Neg), rec = ss.Sum(s => s.Bill!.Rec), extra = t.Grand - pay, bal = t.Grand - t.Paid;
-                var dates = ss.Select(s => s.Bill!.Date).OrderBy(x => x, StringComparer.Ordinal).ToList();
-                var nos = ss.Select(s => s.Bill!.No).Distinct().ToList();
-                var ps = rec >= pay ? "Full Payment" : rec > 0 ? "Part Payment" : "Pending";
+                var ss = g.ToList(); var t = ss[0].T; var bal = t.Grand - t.Paid;
+                // Paid only once every service on the ticket is paid.
+                var paid = ss.All(s => s.Bk is { Paid: true });
                 return new Row
                 {
                     Key = "t" + g.Key,
                     Cells =
                     [
-                        C(T(t.Id, Link, 700), Sub(t.Mbk)), Txt("right", Fmt.Inr(t.Base), num: true), Txt("right", Fmt.Inr(extra), extra < 0 ? Red : Green, 600, num: true),
+                        TicketInfo(t, false), Txt("right", Fmt.Inr(t.Base), num: true),
                         Txt("right", t.Disc > 0 ? "−" + Fmt.Inr(t.Disc) : "-", t.Disc > 0 ? Red : Mut, num: true), Txt("right", "+" + Fmt.Inr(t.Gst), Mut, num: true),
                         Ca("right", T(Fmt.Inr(t.Grand), w: 700, num: true, dot: true, tip: GtTip(t))),
-                        Txt("right", Fmt.Inr(t.Paid), Green, num: true), Txt("right", bal > 0 ? Fmt.Inr(bal) : "Nil", bal > 0 ? Red : Green, 600, num: true), C(Chip(t.Status, ChipTone(t.Status))),
-                        C(T(Fmt.Fd(dates[0]), num: true), Sub(nos.Count > 1 ? nos.Count + " bills" : nos[0])), C(Chip(ps, ps == "Pending" ? "off" : ChipTone(ps))), Txt("right", Fmt.Inr(rec), w: 700, num: true),
+                        Ca("right", T(Fmt.Inr(t.Paid), Green, num: true), T(bal > 0 ? Fmt.Inr(bal) : "Nil", bal > 0 ? Red : Green, 600, 11, num: true)),
+                        Ca("center", StatusText(t.Status)), Ca("center", Chip(paid ? "Paid" : "Pending", paid ? "ok" : "warn")),
                     ],
                     Detail = new Detail
                     {
                         Cols = nh,
-                        Rows = ss.Select(List<Cell> (s) => [Chk(s), C(T(s.V.Name, w: 600), T(s.V.Id, Link, 700, 11)), C(Pill(s.V.Type), Sub(s.V.City)), Period(s), .. Common(s)]).ToList(),
+                        Rows = ss.Select(List<Cell> (s) => [Chk(s), VendorCell(s.V, true), Ca("center", Pill(s.V.Type), Sub(s.V.City)), .. Common(s)]).ToList(),
                     },
                 };
             }).ToList();
@@ -152,10 +158,10 @@ public sealed partial class FinanceReports
         return new ReportVm
         {
             Title = "Fund Management (Approved Vendor Payable)", Pill = true, Kpis = kpis, Query = q, Tabs = ViewTabs(view),
-            Desc = "Every service whose bill has been added in the Vendor Payable Report. Tick services — from either view — and submit; an advice sheet lets you confirm before they move to the Payment Request Report.",
+            Desc = "Every service whose bill is uploaded and approved at L1 and L2. Tick services — from either view — and submit; an advice sheet lets you confirm before they move to the Payment Request Report.",
             Qph = "Search Ticket No., Vendor, Passenger...", Filters = filters, FCount = FCount(defs, false) + (age is "" or "All" ? 0 : 1), Count = count,
-            SelLabel = "Submit", SelPopup = PopUrl("advice"), Cart = true, Cols = cols, Rows = gridRows, Pager = pager, ClearAllUrl = ClearAll,
-            EmptyText = view == "vendor" ? "No billed vendor payables awaiting submission." : "No tickets awaiting submission.",
+            SelLabel = readOnly ? null : "Submit", SelPopup = PopUrl("advice"), Cart = true, Cols = cols, Rows = gridRows, Pager = pager, ClearAllUrl = ClearAll,
+            EmptyText = view == "vendor" ? "No approved vendor payables awaiting submission." : "No tickets awaiting submission.",
         };
     }
 

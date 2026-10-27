@@ -1,12 +1,12 @@
 @*
     Layout for printable portrait A4 documents (Advance Advice, RTGS letters, Payment Advice). Black on white — see doc.css.
-    ViewData: FileName (title = default PDF name), ToolbarTitle, ToolbarHint, DocHead (DocHead), Signs (string[]),
-              RemarkLines (int, optional: writing lines under the body).
+    ViewData: FileName (title = default PDF name), ToolbarTitle, ToolbarHint, DocHead (DocHead), Signs (string[]).
+    With Raw = true the page draws its own sheet(s) and DocHead / Signs are not needed.
 *@
 @{
-    var head = (DocHead)ViewData["DocHead"]!;
-    var signs = (string[])ViewData["Signs"]!;
-    var remarkLines = ViewData["RemarkLines"] as int? ?? 0;
+    var raw = ViewData["Raw"] is true;
+    var head = raw ? null : (DocHead)ViewData["DocHead"]!;
+    var signs = raw ? null : (string[])ViewData["Signs"]!;
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -31,7 +31,7 @@
     </div>
 
     <div class="sheet-scroll">
-        @if (ViewData["Raw"] is true)
+        @if (raw)
         {
             @* The page supplies its own sheets (e.g. two letters in one download). *@
             @RenderBody()
@@ -43,28 +43,20 @@
 
             @RenderBody()
 
-            @if (remarkLines > 0)
-            {
-                <div class="strip">Remarks / Notes</div>
-                <div class="remarks">
-                    @for (var i = 0; i < remarkLines; i++)
-                    {
-                        <div class="rl @(i == remarkLines - 1 ? "last" : "")">&nbsp;</div>
-                    }
-                </div>
-            }
-
             <partial name="_DocSigns" model="signs" />
-            @if (ViewData["Footer"] is string foot && foot != "")
-            {
-                <div class="doc-foot">@foot</div>
-            }
         </section>
         }
     </div>
 
     <script>
         document.querySelectorAll('[data-print]').forEach(b => b.addEventListener('click', () => window.print()));
+        // On a narrow screen the A4 sheet shrinks to fit the width instead of scrolling sideways (printing is unaffected).
+        const docs = [...document.querySelectorAll('.sheet-scroll .doc')];
+        const fit = () => docs.forEach(d => { d.style.zoom = ''; const room = document.documentElement.clientWidth - 24; if (d.offsetWidth > room) d.style.zoom = (room / d.offsetWidth).toFixed(3); });
+        fit();
+        window.addEventListener('resize', fit);
+        window.addEventListener('beforeprint', () => docs.forEach(d => { d.style.zoom = ''; }));
+        window.addEventListener('afterprint', fit);
     </script>
 </body>
 </html>

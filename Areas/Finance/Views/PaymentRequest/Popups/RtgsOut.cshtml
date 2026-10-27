@@ -1,14 +1,17 @@
 @model RtgsOutVm
 @{
     Layout = "_Modal";
-    ViewData["Title"] = "RTGS Advice generated";
+    var name = Model.Bulk ? "Bulk Payment" : "RTGS";
+    ViewData["Title"] = name + " Advice generated";
     ViewData["Sub"] = Model.Rec.No + " · " + Model.Count + " ticket(s) · " + Model.Vendors + " vendor(s) · " + Fmt.Inr(Model.Total);
     ViewData["Width"] = 560;
     var no = Uri.EscapeDataString(Model.Rec.No);
+    var pdf = Model.Bulk ? "/Finance/Advance/BulkPdf?no=" : "/Finance/PaymentRequest/RtgsPdf?no=";
+    var view = Model.Bulk ? "/Finance/Advance/Popup?t=bulkView&no=" : "/Finance/PaymentRequest/Popup?t=rtgsView&no=";
     var docs = new[]
     {
-        (Kind: "internal", Title: "RTGS Internal", Note: "Vendor, amount and cheque details with a total — for Finance records."),
-        (Kind: "bank", Title: "RTGS Bank", Note: "Beneficiary, account, IFSC and amount — to send to the bank."),
+        (Kind: "internal", Title: name + " Internal", Note: "Vendor, amount and cheque details with a total — for Finance records."),
+        (Kind: "bank", Title: name + " Bank", Note: "Beneficiary, account, IFSC and amount — to send to the bank."),
     };
 }
 <div class="rtgs-docs">
@@ -20,13 +23,13 @@
                 <div class="fs12 muted">@d.Note</div>
             </div>
             @* Get opens the letter on its own page, where Download PDF is the print dialog's Save as PDF. *@
-            <a class="btn btn-sm" href="/Finance/PaymentRequest/RtgsPdf?no=@no&kind=@d.Kind" target="_blank" rel="noopener">Get</a>
-            <button type="button" class="btn btn-sm" data-pop="/Finance/PaymentRequest/Popup?t=rtgsView&no=@no&kind=@d.Kind">View</button>
+            <a class="btn btn-sm" href="@pdf@no&kind=@d.Kind" target="_blank" rel="noopener">Get</a>
+            <button type="button" class="btn btn-sm" data-pop="@view@no&kind=@d.Kind">View</button>
         </div>
     }
 </div>
 @section Footer {
     <button type="button" class="btn" data-close>Close</button>
     @* One printout with both letters, Internal first: choose Save as PDF in the print dialog. *@
-    <a class="btn btn-primary" href="/Finance/PaymentRequest/RtgsPdf?no=@no&kind=both" target="_blank" rel="noopener">Download both (PDF)</a>
+    <a class="btn btn-primary" href="@pdf@no&kind=both" target="_blank" rel="noopener">Download both (PDF)</a>
 }

@@ -1,0 +1,46 @@
+@model Svc
+@{
+    Layout = "_Modal";
+    var b = Model.Bill!;
+    ViewData["Title"] = "Approval History";
+    ViewData["Sub"] = Model.T.Id + " · " + Model.V.Name + " · " + Model.V.LegalName;
+    ViewData["Width"] = 820;
+    // Earlier uploads first listed newest-first, the current upload on top.
+    var versions = new List<Bill> { b };
+    versions.AddRange(Enumerable.Reverse(b.Hist));
+    string Lv(Approval a) => a.St switch
+    {
+        "A" => "Approved by " + a.By + " · " + Fmt.Fdt(a.At),
+        "X" => (a.Kind ?? "Rejected") + " by " + a.By + " · " + Fmt.Fdt(a.At) + (string.IsNullOrEmpty(a.Reason) ? "" : " — " + a.Reason),
+        "Q" => "Waiting",
+        _ => "Not reached",
+    };
+}
+<div class="sec nobar">Approvals</div>
+<div class="tbl-scroll">
+    <table class="pop-table stack-tbl">
+        <thead><tr><th>Level</th><th>Status</th></tr></thead>
+        <tbody>
+            <tr><td class="b">L1 (Finance)</td><td>@Lv(b.L1)</td></tr>
+            <tr><td class="b">L2 (Approver)</td><td>@Lv(b.L2)</td></tr>
+            <tr><td class="b">L3</td><td class="muted">Not reached</td></tr>
+        </tbody>
+    </table>
+</div>
+<div class="sec">Upload history</div>
+@foreach (var (h, i) in versions.Select((h, i) => (h, i)))
+{
+    <div class="hist-item">
+        <div><span class="chip chip-@(h.St == "D" ? "danger" : h.Approved ? "ok" : "off")">@(h.St == "D" ? "Disputed" : h.Approved ? "Uploaded" : "Pending")</span> @(i == 0 ? "· latest upload" : "")</div>
+        <div class="hist-grid">
+            <div><div class="fact-l">Bill Date / No.</div>@Fmt.Fd(h.Date) · @(h.No != "" ? h.No : "-")</div>
+            <div><div class="fact-l">Document</div><button type="button" class="fact-link" data-toast="No document is available yet.">@h.Doc</button></div>
+            <div><div class="fact-l">Amount as per Invoice</div><span class="num">@Fmt.Inr(h.Inv)</span></div>
+            <div><div class="fact-l">Uploaded on</div>@Fmt.Fdt(h.Upl)</div>
+            @if (h.Mr != "") { <div style="grid-column:1/-1"><div class="fact-l">Mismatch Reason</div>@h.Mr</div> }
+        </div>
+    </div>
+}
+@section Footer {
+    <button type="button" class="btn" data-close>Close</button>
+}

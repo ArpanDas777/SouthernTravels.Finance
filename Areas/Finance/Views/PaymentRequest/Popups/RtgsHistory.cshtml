@@ -12,7 +12,7 @@
 else
 {
     <div class="tbl-scroll">
-        <table class="pop-table hist-table">
+        <table class="pop-table hist-table stack-tbl">
             <thead>
                 <tr>
                     <th>Advice No.</th><th>Date &amp; time</th><th>Created by</th><th>Tickets · Vendors</th><th class="al-right">Total</th><th>Payment</th><th>Actions</th>
@@ -28,13 +28,10 @@ else
                         <td>@h.Rec.By</td>
                         <td>@h.Count ticket(s) · @h.Vendors vendor(s)</td>
                         <td class="al-right b">@Fmt.Inr(h.Total)</td>
-                        <td class="nw">@(h.Pending == 0 ? "Paid" : $"{h.Pending} of {h.Count} unpaid")</td>
+                        <td class="nw">@(h.Pending == 0 ? "Paid" : $"{h.Pending} of {h.Count} UTR awaited")</td>
                         <td>
                             <div class="hist-btns">
-                                @if (h.Pending > 0)
-                                {
-                                    <button type="button" class="btn btn-xs btn-primary" data-pop="/Finance/PaymentRequest/Popup?t=rtgsPay&no=@no">Update Payment Status</button>
-                                }
+                                <button type="button" class="btn btn-xs btn-primary" data-pop="/Finance/PaymentRequest/Popup?t=rtgsUtr&no=@no" disabled="@(h.Pending == 0)">Update Details</button>
                                 <button type="button" class="btn btn-xs" data-pop="/Finance/PaymentRequest/Popup?t=rtgsView&no=@no&kind=internal&hist=1">Internal</button>
                                 <button type="button" class="btn btn-xs" data-pop="/Finance/PaymentRequest/Popup?t=rtgsView&no=@no&kind=bank&hist=1">Bank</button>
                                 <a class="btn btn-xs" href="/Finance/PaymentRequest/RtgsPdf?no=@no&kind=both" target="_blank" rel="noopener">Both (PDF)</a>

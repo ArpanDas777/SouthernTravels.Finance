@@ -1,73 +1,164 @@
 @model AdvanceAdviceVm
+@* Advance Payment Advice (portrait A4): outlined cards on white, navy rules. The page draws its own sheet (Raw layout mode). *@
 @{
     Layout = "_AdviceLayout";
     var s = Model.Service;
     var a = Model.Req;
     var pay = Model.Pay;
+    ViewData["Raw"] = true;
     ViewData["FileName"] = Model.FileName;
-    ViewData["DocClass"] = "color";
     ViewData["ToolbarTitle"] = "Advance Advice · " + Model.AdviceNo;
-    ViewData["ToolbarHint"] = pay != null ? "Payment details included." : "Payment details will fill in once the payment is recorded.";
-    ViewData["DocHead"] = new DocHead("ADVANCE PAYMENT ADVICE", [], "");
-    ViewData["Footer"] = "Generated: " + Model.Generated;
-    ViewData["Signs"] = new[] { "Ops Executive", "Ops Head", "Finance Head", "Management" };
+    ViewData["ToolbarHint"] = pay != null ? (pay.Paid ? "Payment details included." : "Payment details included — the UTR is added once the payment is made.") : "Payment details will fill in once they are added.";
+    string P(int amount) => Fmt.Pct(amount, Model.SellTotal).Replace(".0%", "%");
+    var earlier = Model.Txns.Count(t => t.Type != "This advance");
 }
+<section class="doc doc-v2">
+    <div class="v2-head">
+        <div class="v2-brand">
+            <img src="~/img/logo-southern.png" alt="Southern Travels" class="v2-logo">
+            <div class="v2-company">Southern Travels Private Limited</div>
+        </div>
+        <div class="v2-title-block">
+            <div class="v2-title">ADVANCE PAYMENT ADVICE</div>
+            <div class="v2-meta">
+                <div><span class="v2-l">Advice No</span><span class="v2-big">@Model.AdviceNo</span></div>
+                <div><span class="v2-l">Date</span><span class="v2-big">@Model.Date</span></div>
+            </div>
+        </div>
+    </div>
 
-<div class="refs">
-    <div><span class="fl">Advice No</span><strong>@Model.AdviceNo</strong></div>
-    <div><span class="fl">Date</span><strong>@Model.Date</strong></div>
-    <div><span class="fl">File No</span><strong>@Model.FileNo</strong></div>
-    <div><span class="fl">Adv. Request No</span><strong>@Model.RequestNo</strong></div>
-</div>
+    <div class="v2-card v2-refs">
+        <div class="v2-ref-l">
+            <div><span class="v2-l">MBK No</span><span class="v2-v">@s.T.Mbk</span></div>
+            <div><span class="v2-l">GRP No</span><span class="v2-v">@s.T.Id</span></div>
+            <div><span class="v2-l">File No</span><span class="v2-v">@Model.FileNo</span></div>
+        </div>
+        <div class="v2-ref-r"><span class="v2-l">Adv. Request No</span><span class="v2-v">@Model.RequestNo</span></div>
+    </div>
 
-<div class="strip">Vendor Details</div>
-<div class="box cols-2">
-    <div class="f"><div class="fl">Vendor Name</div><div class="fv">@s.V.Name</div></div>
-    <div class="f"><div class="fl">Vendor Address</div><div class="fv">@Model.VendorAddress</div></div>
-</div>
+    <div class="v2-card">
+        <div class="v2-title-s">Vendor Details</div>
+        <div class="v2-grid c3">
+            <div><span class="v2-l">Vendor Name</span><span class="v2-v">@s.V.Name</span></div>
+            <div><span class="v2-l">Legal Name</span><span class="v2-v">@s.V.LegalName</span></div>
+            <div><span class="v2-l">Vendor Address</span><span class="v2-v">@Model.VendorAddress</span></div>
+        </div>
+    </div>
 
-<div class="strip">Service &amp; Guest Details</div>
-<div class="box cols-6">
-    <div class="f"><div class="fl">Service Type</div><div class="mt2"><span class="svc svc-@FinanceG.SvcKey(s.V.Type)">@s.V.Type</span></div></div>
-    <div class="f"><div class="fl">Guest Name</div><div class="fv">@s.T.Pax</div></div>
-    <div class="f"><div class="fl">Pax — Adults</div><div class="fv">@s.T.Adults</div></div>
-    <div class="f"><div class="fl">Pax — Children</div><div class="fv">@s.T.Children</div></div>
-    <div class="f"><div class="fl">Service Start Date</div><div class="fv">@Fmt.Dmy(s.Start)</div></div>
-    <div class="f"><div class="fl">Service End Date</div><div class="fv">@Fmt.Dmy(s.End)</div></div>
-</div>
+    <div class="v2-card">
+        <div class="v2-title-s">Service &amp; Guest Details</div>
+        <div class="v2-grid c6">
+            <div><span class="v2-l">Service Type</span><span class="v2-v">@s.V.Type</span></div>
+            <div><span class="v2-l">Guest Name</span><span class="v2-v">@s.T.Pax</span></div>
+            <div><span class="v2-l">Pax — Adults</span><span class="v2-v">@s.T.Adults</span></div>
+            <div><span class="v2-l">Pax — Children</span><span class="v2-v">@s.T.Children</span></div>
+            <div><span class="v2-l">Service Start Date</span><span class="v2-v">@Fmt.Dmy(s.Start)</span></div>
+            <div><span class="v2-l">Service End Date</span><span class="v2-v">@Fmt.Dmy(s.End)</span></div>
+        </div>
+    </div>
 
-<div class="strip">Financial Details</div>
-<div class="box cols-5">
-    <div class="f"><div class="fl">Contracted Rate (₹)</div><div class="fv b">@Fmt.Amt(s.Contr)</div></div>
-    <div class="f"><div class="fl">Negotiated Rate (₹)</div><div class="fv b">@Fmt.Amt(s.Neg)</div></div>
-    <div class="f"><div class="fl">Total Service Cost (₹)</div><div class="fv b">@Fmt.Amt(Model.ServiceCost)</div></div>
-    <div class="f"><div class="fl">Selling Rate (₹)</div><div class="fv b">@Fmt.Amt(s.Sell)</div></div>
-    <div class="f"><div class="fl">Adv. Request Amt</div><div class="fv b">@Fmt.Inr(a.Amt) &nbsp;(@Fmt.Pct(a.Amt, s.Sell).Replace(".0%", "%"))</div></div>
-</div>
+    <div class="v2-card">
+        <div class="v2-title-s">Financial Details</div>
+        <div class="v2-grid c5">
+            <div><span class="v2-l">Contracted Rate (₹)</span><span class="v2-v">@Fmt.Amt(s.Contr)</span></div>
+            <div><span class="v2-l">Negotiated Rate (₹)</span><span class="v2-v">@Fmt.Amt(s.Neg)</span></div>
+            <div><span class="v2-l">Total Service Cost (₹)</span><span class="v2-v">@Fmt.Amt(s.Neg)</span></div>
+            <div><span class="v2-l">Selling Rate (₹)</span><span class="v2-v">@Fmt.Amt(s.Sell)</span></div>
+            <div><span class="v2-l">Adv. Request Amt</span><span class="v2-v">@Fmt.Inr(a.Amt) (@Fmt.Pct(a.Amt, s.Sell).Replace(".0%", "%"))</span></div>
+        </div>
+    </div>
 
-@if (pay == null)
-{
-    <div class="strip">Payment Details — To Be Completed On Disbursement</div>
-    <div class="box cols-4 ro">
-        <div class="f span-12"><div class="fl">UTR / Ref No.</div><div class="blank">&nbsp;</div></div>
-        @foreach (var label in new[] { "Bank Name", "Account No.", "IFSC", "Payment Date", "Mode of Payment", "Amount Paid (₹)" })
+    @* The advance in context: what was already paid, what this advance adds, and what remains. *@
+    <div class="v2-card">
+        <div class="v2-title-s">Advance Position</div>
+        <div class="v2-pos">
+            <div><span class="v2-l">Earlier Advances Paid@(earlier > 0 ? $" ({earlier})" : "")</span>
+                <span class="v2-pv">@(Model.PaidBefore > 0 ? Fmt.Inr(Model.PaidBefore) : "None")@if (Model.PaidBefore > 0) { <small>@P(Model.PaidBefore)</small> }</span></div>
+            <div class="is-this"><span class="v2-l">This Advance</span><span class="v2-pv">@Fmt.Inr(a.Amt) <small>@P(a.Amt)</small></span></div>
+            <div><span class="v2-l">Total Advance After This</span><span class="v2-pv">@Fmt.Inr(Model.PaidBefore + a.Amt) <small>@P(Model.PaidBefore + a.Amt)</small></span></div>
+            <div><span class="v2-l">Balance After This Advance</span><span class="v2-pv">@Fmt.Inr(Model.BalanceAfter) <small>of @Fmt.Inr(Model.Payable)</small></span></div>
+        </div>
+    </div>
+
+    @* Transaction history: every payment to this vendor on this ticket, with this advance as the next line. *@
+    <div class="v2-card">
+        <div class="v2-title-s">Advance Payment Transaction Record</div>
+        <div class="v2-grid c3 v2-sum">
+            <div><span class="v2-l">Payable (₹)</span><span class="v2-v">@Fmt.Amt(Model.Payable)</span></div>
+            <div><span class="v2-l">Paid (₹)</span><span class="v2-v">@Fmt.Amt(Model.TotalPaid)</span></div>
+            <div><span class="v2-l">Balance (₹)</span><span class="v2-v">@Fmt.Amt(Model.Balance)</span></div>
+        </div>
+        <table class="v2-tbl">
+            <thead>
+                <tr><th class="c-n">#</th><th>Date</th><th>Ref. No.</th><th>Mode</th><th class="r">Paid (₹)</th><th class="r">% of Sell.</th><th class="r">Balance (₹)</th></tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < Model.Txns.Count; i++)
+                {
+                    var t = Model.Txns[i];
+                    <tr class="@(t.Type == "This advance" ? "is-due" : "")">
+                        <td>@(i + 1)</td><td class="nw">@(t.Date != "" ? Fmt.Dmy(t.Date) : "-")</td><td class="nw">@t.Ref</td><td>@t.Mode</td>
+                        <td class="r">@Fmt.Amt(t.Paid)</td><td class="r">@t.Share</td><td class="r">@Fmt.Amt(t.Balance)</td>
+                    </tr>
+                }
+                @if (pay == null)
+                {
+                    <tr class="is-due">
+                        <td>@(Model.Txns.Count + 1)</td><td>-</td><td>-</td><td>To be paid</td>
+                        <td class="r">@Fmt.Amt(a.Amt)</td><td class="r">@Fmt.Pct(a.Amt, s.Sell).Replace(".0%", "%")</td><td class="r">@Fmt.Amt(Model.BalanceAfter)</td>
+                    </tr>
+                }
+            </tbody>
+            <tfoot>
+                <tr><td colspan="4">Total paid @(pay == null ? "so far" : "")</td><td class="r">@Fmt.Amt(Model.TotalPaid)</td><td></td><td class="r">@Fmt.Amt(Model.Balance)</td></tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <div class="v2-card">
+        <div class="v2-title-s">Payment Details — This Advance @(pay == null ? "(To Be Completed On Disbursement)" : "")</div>
+        @if (pay == null)
         {
-            <div class="f"><div class="fl">@label</div><div class="blank">&nbsp;</div></div>
+            <div class="v2-grid c3 v2-fill">
+                @foreach (var label in new[] { "UTR / Ref No.", "Bank Name", "Account No." }) { <div><span class="v2-l">@label</span><span class="v2-blank"></span></div> }
+            </div>
+            <div class="v2-grid c4 v2-fill">
+                @foreach (var label in new[] { "IFSC", "Payment Date", "Mode of Payment", "Amount Paid (₹)" }) { <div><span class="v2-l">@label</span><span class="v2-blank"></span></div> }
+            </div>
+        }
+        else
+        {
+            <div class="v2-grid c3 v2-fill">
+                <div><span class="v2-l">Cheque Type</span><span class="v2-filled">@pay.CType</span></div>
+                <div><span class="v2-l">@(pay.CType == "E-Cheque" ? "Request No." : "Cheque No.")</span><span class="v2-filled">@pay.No</span></div>
+                <div><span class="v2-l">Bank A/C (STPL)</span><span class="v2-filled">@pay.Bank</span></div>
+            </div>
+            <div class="v2-grid c4 v2-fill">
+                <div><span class="v2-l">Date of Advance</span><span class="v2-filled">@Fmt.Dmy(pay.PaymentDate)</span></div>
+                <div><span class="v2-l">Payment Mode</span><span class="v2-filled">@pay.Mode</span></div>
+                <div><span class="v2-l">UTR / Transaction No.</span>@if (pay.Paid) { <span class="v2-filled">@pay.Utr</span> } else { <span class="v2-blank"></span> }</div>
+                <div><span class="v2-l">Net Payable (₹)</span><span class="v2-filled">@Fmt.Amt(pay.Net)</span><small class="v2-note">Advance @Fmt.Inr(a.Amt) less TDS @pay.Pct.ToString("0.##", Fmt.Inv)% (@Fmt.Inr(pay.Tds))</small></div>
+            </div>
+            <div class="v2-grid c4 v2-fill">
+                <div><span class="v2-l">Beneficiary Bank</span><span class="v2-filled">@Model.Kyc.Bank</span></div>
+                <div><span class="v2-l">Account No.</span><span class="v2-filled">@Model.Kyc.Acc</span></div>
+                <div><span class="v2-l">IFSC</span><span class="v2-filled">@Model.Kyc.Ifsc</span></div>
+                <div><span class="v2-l">Added On</span><span class="v2-filled">@Fmt.DmyTime(pay.Date)</span></div>
+            </div>
         }
     </div>
-}
-else
-{
-    <div class="strip strip-paid">Payment Details <span class="paid-tag">Paid</span></div>
-    <div class="box cols-4 ro">
-        <div class="f span-12"><div class="fl">@(pay.CType == "Online" ? "UTR / Ref No." : "Cheque / Ref No.")</div><div class="filled">@pay.No</div></div>
-        <div class="f"><div class="fl">Bank Name</div><div class="filled">@pay.Bank</div></div>
-        <div class="f"><div class="fl">Account No.</div><div class="filled">@Model.Kyc.Acc</div></div>
-        <div class="f"><div class="fl">IFSC</div><div class="filled">@Model.Kyc.Ifsc</div></div>
-        <div class="f"><div class="fl">Payment Date</div><div class="filled">@Fmt.Dmy(pay.PaymentDate)</div></div>
-        <div class="f"><div class="fl">Mode of Payment</div><div class="filled">@pay.Mode (@pay.CType)</div></div>
-        <div class="f"><div class="fl">Amount Paid (₹)</div><div class="filled">@Fmt.Amt(pay.AmountPaid)</div><div class="tds">Advance @Fmt.Inr(a.Amt) less TDS @pay.Pct.ToString("0.##", Fmt.Inv)% (@Fmt.Inr(pay.Tds))</div></div>
-        <div class="f span-12"><div class="fl">Payment Slip</div><div class="filled">@(pay.Slip != "" ? pay.Slip : "-")</div></div>
-        <div class="f span-34"><div class="fl">Added On</div><div class="filled">@Fmt.DmyTime(pay.Date)</div></div>
+
+    <div class="v2-signs">
+        @foreach (var role in new[] { "Ops Executive", "Ops Head", "Finance Head", "Management" })
+        {
+            <div>
+                <div class="v2-role">@role</div>
+                <div class="v2-sign-line"></div>
+                <div>Signature</div>
+                <div class="v2-sign-f">Name: ____________</div>
+                <div class="v2-sign-f">Date: ____________</div>
+            </div>
+        }
     </div>
-}
+    <div class="v2-gen">Generated: @Model.Generated</div>
+</section>

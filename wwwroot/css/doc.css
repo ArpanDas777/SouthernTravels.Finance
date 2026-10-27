@@ -33,12 +33,7 @@
 
 /* label/value grid: every cell is boxed */
 .doc .box { display: grid; border-left: 1px solid #000; border-top: 1px solid #000; margin-bottom: 4px; }
-.doc .cols-2 { grid-template-columns: 1fr 1fr; }
-.doc .cols-3 { grid-template-columns: 1fr 1fr 1fr; }
 .doc .cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
-.doc .span-12 { grid-column: 1 / 3; }
-.doc .span-34 { grid-column: 3 / 5; }
-.doc .span-all { grid-column: 1 / -1; }
 .doc .f { padding: 5px 8px 6px; border-right: 1px solid #000; border-bottom: 1px solid #000; min-width: 0; }
 .doc .fl { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #333; }
 .doc .fv { font-size: 12.5px; font-weight: 700; margin-top: 1px; overflow-wrap: anywhere; }
@@ -48,9 +43,6 @@
 .doc .svc { display: inline-block; font-size: 11px; font-weight: 700; padding: 0 6px; border: 1px solid #000; }
 
 /* writing lines and signatures */
-.doc .remarks { border: 1px solid #000; margin-top: 0; padding: 4px 8px 2px; margin-bottom: 12px; }
-.doc .rl { border-bottom: 1px solid #000; height: 24px; }
-.doc .rl.last { border-bottom: 0; }
 .doc-signs { display: grid; grid-template-columns: repeat(var(--n, 4), 1fr); gap: 14px; margin-top: auto; padding-top: 18px; }
 .doc-sign-role { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
 .doc-sign-line { margin-top: 30px; border-top: 1.5px solid #000; padding-top: 3px; font-size: 10.5px; color: #333; }
@@ -71,7 +63,7 @@
 .doc-table .c-n { width: 26px; }
 .doc-table .sub { font-size: 10.5px; color: #333; }
 .doc-table tfoot td { font-weight: 800; border-top: 2px solid #000; font-size: 12px; }
-.doc-table tr, .doc .strip, .doc .box, .doc .remarks, .doc-signs { break-inside: avoid; }
+.doc-table tr, .doc .strip, .doc .box, .doc-signs { break-inside: avoid; }
 
 @media print {
     .doc { margin: 0; width: 210mm; min-height: 297mm; }
@@ -113,16 +105,6 @@
 .doc.color .danger { color: #B91C1C; }
 .doc.color .strip-paid .paid-tag { background: #DCFCE7; color: #15803D; border: 0; border-radius: 3px; }
 
-/* six fields on one line (Advance Advice), and the reference strip above the first section */
-.doc .cols-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.doc .cols-6 .fl { font-size: 9.5px; letter-spacing: .02em; }
-.doc .cols-6 .fv { font-size: 12px; }
-.doc .refs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 4px; font-size: 11.5px; }
-.doc .refs .fl { display: block; }
-.doc .refs strong { font-weight: 800; }
-.doc-foot { margin-top: 10px; padding-top: 4px; border-top: 1px solid #000; font-size: 10.5px; color: #333; text-align: right; }
-.doc .cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-.doc .cols-5 .fl { font-size: 9.5px; letter-spacing: .02em; }
 
 /* Payment Advice: status badge (always spelled out, so it reads without colour) and a table that sits under its strip */
 .doc .doc-to-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -136,3 +118,59 @@
 /* several sheets in one printout: each starts on a new page and sits apart on screen */
 .sheet-scroll .doc + .doc { margin-top: 20px; }
 @media print { .doc.sheet-break { break-after: page; } .sheet-scroll .doc + .doc { margin-top: 0; } }
+
+/* ---------- Advance Payment Advice layout: outlined cards, navy rules, no filled bars ---------- */
+.doc-v2 { --navy: #1A2B47; color: #111; font-size: 12px; padding: 12mm 13mm 9mm; }
+.doc-v2 .v2-l { display: block; font-size: 10px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; color: #333; line-height: 1.25; }
+.doc-v2 .v2-v { display: block; margin-top: 3px; font-size: 13.5px; font-weight: 600; overflow-wrap: anywhere; }
+.doc-v2 .nw { white-space: nowrap; }
+
+.doc-v2 .v2-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding-bottom: 8px; border-bottom: 4px solid var(--navy); margin-bottom: 10px; }
+.doc-v2 .v2-logo { height: 54px; display: block; }
+.doc-v2 .v2-company { margin-top: 2px; font-size: 11px; color: #222; }
+.doc-v2 .v2-title-block { text-align: right; }
+.doc-v2 .v2-title { font-size: 22px; font-weight: 800; letter-spacing: .1em; color: var(--navy); }
+.doc-v2 .v2-meta { display: inline-grid; grid-template-columns: auto auto; margin-top: 6px; border: 2px solid var(--navy); border-radius: 6px; text-align: left; }
+.doc-v2 .v2-meta > div { padding: 5px 12px; }
+.doc-v2 .v2-meta > div + div { border-left: 2px solid var(--navy); }
+.doc-v2 .v2-big { display: block; font-size: 16px; font-weight: 800; color: var(--navy); }
+
+.doc-v2 .v2-card { border: 1.5px solid var(--navy); border-radius: 8px; padding: 8px 14px 10px; margin-bottom: 8px; break-inside: avoid; }
+.doc-v2 .v2-title-s { font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--navy); padding-bottom: 5px; margin-bottom: 8px; border-bottom: 1.5px solid var(--navy); }
+.doc-v2 .v2-refs { display: flex; justify-content: space-between; gap: 16px; padding: 7px 14px; }
+.doc-v2 .v2-ref-l { display: flex; gap: 30px; }
+
+.doc-v2 .v2-grid { display: grid; gap: 4px 14px; }
+.doc-v2 .v2-grid.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.doc-v2 .v2-grid.c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.doc-v2 .v2-grid.c5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.doc-v2 .v2-grid.c6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.doc-v2 .v2-grid .span-2 { grid-column: span 2; }
+.doc-v2 .v2-sum { margin-bottom: 6px; }
+
+.doc-v2 .v2-pos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.doc-v2 .v2-pos > div { border: 1px solid var(--navy); border-radius: 6px; padding: 6px 9px; }
+.doc-v2 .v2-pos .is-this { border: 2.5px solid var(--navy); background: #F5F8FC; }
+.doc-v2 .v2-pv { display: block; margin-top: 3px; font-size: 16px; font-weight: 800; }
+.doc-v2 .v2-pv small { font-size: 10.5px; font-weight: 500; color: #333; }
+
+.doc-v2 .v2-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.doc-v2 .v2-tbl th { padding: 5px 6px; text-align: left; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--navy); background: #F1F5FB; border-top: 1.5px solid var(--navy); border-bottom: 1.5px solid var(--navy); }
+.doc-v2 .v2-tbl td { padding: 5px 6px; border-bottom: 1px solid #C9D2E0; }
+.doc-v2 .v2-tbl .r { text-align: right; font-variant-numeric: tabular-nums; }
+.doc-v2 .v2-tbl .c-n { width: 24px; }
+.doc-v2 .v2-tbl tr.is-due td { font-weight: 800; background: #F5F8FC; border-top: 2px solid var(--navy); border-bottom: 2px solid var(--navy); }
+.doc-v2 .v2-tbl tfoot td { font-weight: 800; border-bottom: 0; }
+
+.doc-v2 .v2-fill { margin-top: 6px; }
+.doc-v2 .v2-blank { display: block; height: 22px; border-bottom: 1.5px solid var(--navy); }
+.doc-v2 .v2-filled { display: block; min-height: 22px; margin-top: 2px; border-bottom: 1.5px solid var(--navy); padding: 2px 0; font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+.doc-v2 .v2-note { display: block; font-size: 9.5px; color: #333; margin-top: 2px; }
+
+.doc-v2 .v2-signs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; }
+.doc-v2 .v2-signs > div { border: 1.5px solid var(--navy); border-radius: 8px; padding: 8px 10px; font-size: 11px; break-inside: avoid; }
+.doc-v2 .v2-role { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--navy); }
+.doc-v2 .v2-sign-line { margin-top: 26px; border-top: 1.5px solid var(--navy); margin-bottom: 3px; }
+.doc-v2 .v2-sign-f { margin-top: 6px; }
+.doc-v2 .v2-gen { margin-top: 8px; text-align: right; font-size: 10.5px; color: #333; }
+@media print { .sheet-scroll .doc, .doc-frame .doc { zoom: 1 !important; } }

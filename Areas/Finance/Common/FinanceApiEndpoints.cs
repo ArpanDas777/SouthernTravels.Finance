@@ -24,6 +24,7 @@ public static class FinanceApiEndpoints
 
         // ---------- Vendor Payable ----------
         public const string RaiseVendorBill = "RaiseVendorBill";
+        public const string ApproveVendorBill = "ApproveVendorBill";
 
         // ---------- Approved Vendor Payable ----------
         public const string SubmitToPaymentRequest = "SubmitToPaymentRequest";
@@ -35,8 +36,12 @@ public static class FinanceApiEndpoints
 
         // ---------- Advance ----------
         public const string UpdateAdvancePayment = "UpdateAdvancePayment";
+        public const string ApproveAdvanceRequest = "ApproveAdvanceRequest";
+        public const string CreateBulkPaymentAdvice = "CreateBulkPaymentAdvice";
+        public const string UpdateBulkPaymentUtr = "UpdateBulkPaymentUtr";
 
         // ---------- Red "new" dots ----------
+        public const string UpdateKycDocument = "UpdateKycDocument";
         public const string MarkVendorSeen = "MarkVendorSeen";
     }
 }

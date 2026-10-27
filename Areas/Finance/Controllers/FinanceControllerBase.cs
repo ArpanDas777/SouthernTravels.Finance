@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using SouthernTravels.Areas.Finance.Data;
 using SouthernTravels.Areas.Finance.Interfaces;
+using SouthernTravels.Areas.Finance.Models;
 using SouthernTravels.Areas.Finance.Reports;
 using SouthernTravels.Core.Controllers;
 using SouthernTravels.Core.Infrastructure;
@@ -26,7 +27,7 @@ public abstract class FinanceControllerBase(IFinanceService finance) : AppContro
     protected FinanceStore St => _store ?? throw new InvalidOperationException("Finance data has not been loaded.");
     protected override AreaInfo Area => FinanceArea.Info;
 
-    FinanceReports Reports => new(St, ReportQuery.Parse(Request), Period);
+    FinanceReports Reports => new(St, ReportQuery.Parse(Request), Period, Ctx.ReadOnly, Ctx.Approver);
 
     public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
@@ -47,6 +48,18 @@ public abstract class FinanceControllerBase(IFinanceService finance) : AppContro
     public override void OnActionExecuting(ActionExecutingContext context)
     {
         base.OnActionExecuting(context);
+        // Approved Vendor Payable and Payment Request are not part of the approver's menu.
+        if (Ctx.Approver && context.RouteData.Values["controller"] is "ApprovedVendorPayable" or "PaymentRequest")
+        {
+            context.Result = Redirect(FinanceArea.Home);
+            return;
+        }
+        // A read-only user (vijay) can look but not save anything.
+        if (Ctx.ReadOnly && HttpMethods.IsPost(Request.Method))
+        {
+            context.Result = Back(Request.Form["returnUrl"], "Read-only access — nothing was saved.");
+            return;
+        }
         if (_loadError != null) Ctx.Toast = "Could not load Finance data — " + _loadError;
     }
 
@@ -59,18 +72,26 @@ public abstract class FinanceControllerBase(IFinanceService finance) : AppContro
     {
         Ctx.Page = page;
         Ctx.PeriodField = periodField;
-        return View("Report", build(Reports));
+        var vm = build(Reports);
+        if (Ctx.Approver) vm.Title += " (Approval)";
+        return View("Report", vm);
     }
 
     /// <summary>A real yyyy-MM-dd date that is not in the future.</summary>
     protected static bool ValidPaymentDate(string? d) =>
         DateTime.TryParseExact(d, "yyyy-MM-dd", Fmt.Inv, System.Globalization.DateTimeStyles.None, out _) && Fmt.Cmp(d!, Clock.Today) <= 0;
 
-    /// <summary>Cheque No. is required for cheque payments; UTR for electronic transfers (neither for cash).</summary>
-    protected static bool PaymentRefOk(string? mode, string? utr, string? chequeNo) => mode switch
-    {
-        "Cheque" => !string.IsNullOrWhiteSpace(chequeNo),
-        "Cash" => true,
-        _ => !string.IsNullOrWhiteSpace(utr),
-    };
+    /// <summary>
+    /// One RTGS / Bulk Payment letter line per (service, net amount): the net payable to the vendor's legal name, in the given order.
+    /// Sender account numbers are placeholders until real ones are supplied.
+    /// </summary>
+    protected List<RtgsLetterRow> LetterRowsOf(RtgsRecord rec, IEnumerable<(Svc S, int Net)> items) =>
+        items.Select((x, i) => new RtgsLetterRow(i + 1, rec.Common.SenderBank + " [A/c No.]", rec.Common.ChequeNo, rec.Common.RandomNo, Fmt.Fd(rec.Common.ChequeDate),
+            St.K[x.S.Vi].Acc, St.K[x.S.Vi].Ifsc, x.Net, x.S.V.LegalName, rec.Common.Remarks ?? "")).ToList();
+
+    /// <summary>The payment details of an Advance, Bulk Payment, Payment Request or RTGS form (cheque type, mode, STPL bank, cheque / request no., date), or null when any is missing or invalid.</summary>
+    protected static (string CType, string Mode, string Bank, string No, string Date)? PaymentDetails(string? ctype, string? mode, string? bank, string? no, string? date) =>
+        FinanceOptions.ChequeTypes.Contains(ctype ?? "") && FinanceOptions.AdvanceModes.Contains(mode ?? "") && FinanceOptions.SenderBanks.Contains(bank ?? "")
+            && !string.IsNullOrWhiteSpace(no) && ValidPaymentDate(date)
+            ? (ctype!, mode!, bank!, no!.Trim(), date!) : null;
 }

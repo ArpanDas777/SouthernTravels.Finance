@@ -1,0 +1,24 @@
+@model Svc
+@* The header every bill pop-up shares: GRP · MBK · File no., then the vendor and service facts with the payable, advance and balance. *@
+@{
+    var s = Model;
+    List<(string L, string V, string? Color, bool Bold)> items =
+    [
+        ("Vendor Name", s.V.Name, null, false), ("Vendor Legal Name", s.V.LegalName, null, false),
+    ];
+    if (s.IsAcc)
+    {
+        items.Add(("Hotel Name", s.Hotel, null, false));
+        items.Add(("Meal Plan", s.Meal, null, false));
+        items.Add(("Room Category", s.RoomCat, null, false));
+        items.Add(("Occupancy", s.Occ != "" ? s.Occ : "-", null, false));
+    }
+    else items.Add(("Service", s.Name, null, false));
+    items.Add(("Vendor Payable", Fmt.Inr(s.Neg), G.Strong, true));
+    items.Add(("Advance Paid", s.AdvPaid > 0 ? Fmt.Inr(s.AdvPaid) : "-", s.AdvPaid > 0 ? G.Green : null, false));
+    items.Add(("Balance Pending", s.Bal > 0 ? Fmt.Inr(s.Bal) : "Nil", s.Bal > 0 ? G.Red : G.Green, true));
+}
+<div class="bill-head">
+    <div class="bill-head-t"><span>@s.T.Id</span><span class="sep">·</span><span>@s.T.Mbk</span><span class="sep">·</span><span class="num">@s.T.File</span></div>
+    <partial name="_Facts" model="@(new FactsBlock { Cols = 4, Strip = true, Items = items })" />
+</div>

@@ -102,9 +102,21 @@ public class FinanceApiService : BaseApiService, IFinanceService
             Bills = bills.Select(x => new RaiseVendorBillItem
             {
                 ServiceID = x.Sid, BillStatus = x.Bill.St, BillDate = x.Bill.Date, BillNo = x.Bill.No, DocumentName = x.Bill.Doc,
-                InvoiceAmount = x.Bill.Inv, ReceivableAmount = x.Bill.Rec,
+                InvoiceAmount = x.Bill.Inv, ReceivableAmount = x.Bill.Rec, AdditionalDocumentName = x.Bill.Extra, MismatchReason = x.Bill.Mr,
             }).ToList(),
         });
+
+    public Task<FinanceApiResponse> ApproveBillAsync(string sid, string by) =>
+        Save(FinanceApiEndpoints.FinanceActions.ApproveVendorBill, new ApproveVendorBillRequest { ServiceID = sid, Status = "A", ApprovedByName = by });
+
+    public Task<FinanceApiResponse> RejectBillAsync(string sid, string kind, string reason, string by) =>
+        Save(FinanceApiEndpoints.FinanceActions.ApproveVendorBill, new ApproveVendorBillRequest { ServiceID = sid, Status = "X", Kind = kind, Reason = reason, ApprovedByName = by });
+
+    public Task<FinanceApiResponse> DecideAdvanceAsync(string sid, bool approve, string by, string? reason = null) =>
+        Save(FinanceApiEndpoints.FinanceActions.ApproveAdvanceRequest, new ApproveAdvanceRequest { ServiceID = sid, Status = approve ? "A" : "X", Reason = reason, ApprovedByName = by });
+
+    public Task<FinanceApiResponse> SetKycDocAsync(int vendorIndex, string docKey, string status, string? reason, string by) =>
+        Save(FinanceApiEndpoints.FinanceActions.UpdateKycDocument, new UpdateKycDocumentRequest { VendorIndex = vendorIndex, DocKey = docKey, Status = status, Reason = reason, ApprovedByName = by });
 
     /* ---------- Approved Vendor Payable ---------- */
 
@@ -113,25 +125,23 @@ public class FinanceApiService : BaseApiService, IFinanceService
 
     /* ---------- Payment Request ---------- */
 
-    public Task<FinanceApiResponse> CreateRtgsAsync(IReadOnlyCollection<string> sids, RtgsCommon common, string by) =>
+    public Task<FinanceApiResponse> CreateRtgsAsync(IReadOnlyDictionary<string, decimal> tdsPct, RtgsCommon common, string by) =>
         Save(FinanceApiEndpoints.FinanceActions.CreateRtgsAdvice, new CreateRtgsAdviceRequest
         {
-            ServiceIDs = sids.ToList(), SenderBank = common.SenderBank, ChequeNo = common.ChequeNo, ChequeDate = common.ChequeDate,
-            RandomNo = common.RandomNo, Remarks = common.Remarks, CreatedByName = by,
+            Items = tdsPct.Select(x => new RtgsAdviceItem { ServiceID = x.Key, TdsPercent = x.Value }).ToList(), SenderBank = common.SenderBank,
+            ChequeType = common.CType, PaymentMode = common.Mode, ChequeNo = common.ChequeNo, ChequeDate = common.ChequeDate, RandomNo = common.RandomNo, CreatedByName = by,
         });
 
-    public Task<FinanceApiResponse> PayRequestAsync(string sid, string by, PaymentEntry p, int amountPaid) =>
+    public Task<FinanceApiResponse> SavePayDetailsAsync(string sid, string by, string cType, string mode, string bank, string chequeNo, string date, string? utr) =>
         Save(FinanceApiEndpoints.FinanceActions.UpdatePaymentRequestPayment, new UpdatePaymentRequestPaymentRequest
         {
-            ServiceID = sid, AmountPaid = amountPaid, BankName = p.Bank, PaymentMode = p.Mode, UTRNo = p.Utr, ChequeNo = p.ChequeNo,
-            PaymentDate = p.PaymentDate, PaymentSlip = p.Slip, PaidByName = by,
+            ServiceID = sid, ChequeType = cType, PaymentMode = mode, BankName = bank, ChequeNo = chequeNo, PaymentDate = date, UTRNo = utr, PaidByName = by,
         });
 
-    public Task<FinanceApiResponse> PayRtgsAsync(string rtgsNo, string by, PaymentEntry p, IReadOnlyList<RtgsPaymentItem> items) =>
+    public Task<FinanceApiResponse> SaveRtgsUtrsAsync(string rtgsNo, string by, IReadOnlyDictionary<string, string> utrs) =>
         Save(FinanceApiEndpoints.FinanceActions.UpdateRtgsPaymentStatus, new UpdateRtgsPaymentStatusRequest
         {
-            RtgsNo = rtgsNo, Items = items.ToList(), BankName = p.Bank, PaymentMode = p.Mode, UTRNo = p.Utr, ChequeNo = p.ChequeNo,
-            PaymentDate = p.PaymentDate, PaymentSlip = p.Slip, PaidByName = by,
+            RtgsNo = rtgsNo, PaidByName = by, Items = utrs.Where(x => x.Value != "").Select(x => new BulkUtrItem { ServiceID = x.Key, UTRNo = x.Value }).ToList(),
         });
 
     /* ---------- Advance ---------- */
@@ -142,9 +152,23 @@ public class FinanceApiService : BaseApiService, IFinanceService
         return Save(FinanceApiEndpoints.FinanceActions.UpdateAdvancePayment, new UpdateAdvancePaymentRequest
         {
             ServiceID = sid, TdsPercent = pay.Pct, TdsAmount = pay.Tds, NetAmount = pay.Net, ChequeType = pay.CType, ReferenceNo = pay.No,
-            BankName = pay.Bank, PaymentMode = pay.Mode, PaymentDate = pay.PaymentDate, AmountPaid = pay.AmountPaid, PaymentSlip = pay.Slip,
+            BankName = pay.Bank, PaymentMode = pay.Mode, PaymentDate = pay.PaymentDate, AmountPaid = pay.AmountPaid,
+            UTRNo = pay.Utr, RandomNo = pay.Rnd,
         });
     }
+
+    public Task<FinanceApiResponse> CreateBulkPaymentAsync(IReadOnlyDictionary<string, decimal> tdsPct, AdvancePayment common, RtgsCommon advice, string by) =>
+        Save(FinanceApiEndpoints.FinanceActions.CreateBulkPaymentAdvice, new CreateBulkPaymentAdviceRequest
+        {
+            Items = tdsPct.Select(x => new BulkPaymentItem { ServiceID = x.Key, TdsPercent = x.Value }).ToList(), ChequeType = common.CType,
+            PaymentMode = common.Mode, SenderBank = advice.SenderBank, ChequeNo = advice.ChequeNo, PaymentDate = common.PaymentDate, RandomNo = common.Rnd, CreatedByName = by,
+        });
+
+    public Task<FinanceApiResponse> SaveBulkUtrsAsync(string bulkNo, IReadOnlyDictionary<string, string> utrs) =>
+        Save(FinanceApiEndpoints.FinanceActions.UpdateBulkPaymentUtr, new UpdateBulkPaymentUtrRequest
+        {
+            BulkNo = bulkNo, Items = utrs.Where(x => x.Value != "").Select(x => new BulkUtrItem { ServiceID = x.Key, UTRNo = x.Value }).ToList(),
+        });
 
     /* ---------- red dots ---------- */
 

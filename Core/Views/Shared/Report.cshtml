@@ -8,7 +8,7 @@
 
 <div class="titlerow">
     <h1>@Model.Title</h1>
-    <button type="button" class="info-btn" aria-label="About this report" data-tip="@infoTip">
+    <button type="button" class="info-btn" aria-label="About this report" data-tip="@infoTip" data-tip-below>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9.5"></circle><path d="M12 11v5.5M12 7.5v.01"></path></svg>
     </button>
     @if (Model.Pill)
@@ -64,6 +64,14 @@
         @foreach (var tb in Model.Tools)
         {
             <button type="button" class="btn @(tb.Primary ? "btn-primary" : "")" data-pop="@tb.Pop">@tb.Label</button>
+        }
+        @* Advance Report: Bulk Payment. Start shows a tick column on the advances without payment details; Proceed opens the pop-up for the ticked ones. *@
+        @if (Model.Bulk != null)
+        {
+            <button type="button" class="btn" data-bulk-off data-pop="@Model.Bulk.HistoryPopup">@Model.Bulk.HistoryLabel (@Model.Bulk.HistoryCount)</button>
+            <button type="button" class="btn btn-primary" data-bulk-off data-bulk-start data-group="@Model.Bulk.Group" data-expand="@(Model.Bulk.ExpandAll ? "1" : "")">@Model.Bulk.StartLabel</button>
+            <button type="button" class="btn btn-confirm" data-bulk-go data-pop-type="@Model.Bulk.ProceedPopup" hidden>Proceed (0)</button>
+            <button type="button" class="btn" data-bulk-cancel hidden>Cancel</button>
         }
         @* Vendor Payable: bulk Raise Bill for the ticked services (Approved Vendor Payable uses the cart instead). *@
         @if (Model.SelLabel != null && !Model.Cart)
@@ -125,18 +133,18 @@
 <div class="report-body">
 <div class="report-main">
 <div class="grid-wrap">
-    <table class="grid">
+    <table class="grid" data-grid>
         <thead>
             <tr>
                 @foreach (var c in Model.Cols)
                 {
                     if (c.SortUrl != null)
                     {
-                        <th class="al-@c.Align sortable @(c.SortActive ? "sort-active" : "")"><a href="@c.SortUrl">@c.L</a></th>
+                        <th class="al-@c.Align sortable @(c.SortActive ? "sort-active" : "") @c.Cls"><a href="@c.SortUrl">@c.L</a></th>
                     }
                     else
                     {
-                        <th class="al-@c.Align">@c.L</th>
+                        <th class="al-@c.Align @c.Cls" data-tip-below data-tip="@(c.Tip == null ? null : G.TipJson([new TipLine(c.Tip)]))">@c.L</th>
                     }
                 }
             </tr>
@@ -226,13 +234,18 @@
         // Separate branches: Razor would write an empty data-label for a null value.
         if (string.IsNullOrEmpty(label))
         {
-            <td class="cell @(role == "" ? "" : "card-" + role)"><div class="cbox al-@cell.Align">@foreach (var l in cell.Lines) { RenderLine(l); }</div></td>
+            <td class="cell @(role == "" ? "" : "card-" + role) @cell.Cls"><div class="cbox al-@cell.Align">@foreach (var l in cell.Lines) { RenderLine(l); }</div></td>
         }
         else
         {
-            <td class="cell @(role == "" ? "" : "card-" + role)" data-label="@label"><div class="cbox al-@cell.Align">@foreach (var l in cell.Lines) { RenderLine(l); }</div></td>
+            <td class="cell @(role == "" ? "" : "card-" + role) @cell.Cls" data-label="@label"><div class="cbox al-@cell.Align">@foreach (var l in cell.Lines) { RenderLine(l); }</div></td>
         }
     }
+
+    /// <summary>Button content: the icon (wide screens) and the text (cards on phones and tablets); with no icon just the text.</summary>
+    Microsoft.AspNetCore.Html.IHtmlContent BtnBody(Line l) => l.Icon == null
+        ? new Microsoft.AspNetCore.Html.HtmlString(System.Net.WebUtility.HtmlEncode(l.Text))
+        : new Microsoft.AspNetCore.Html.HtmlString("<svg class=\"bi\" width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\" focusable=\"false\">" + G.IconPath(l.Icon) + "</svg><span class=\"bt\">" + System.Net.WebUtility.HtmlEncode(l.Text) + "</span>");
 
     // Razor writes data-* attributes even when the value is null, so nullable ones get their own branch.
     void RenderLine(Line l)
@@ -264,18 +277,27 @@
                 <span class="lv lv-@l.Tone" aria-label="@l.Text">@l.Lvl @l.Glyph</span>
                 break;
             case LineKind.Btn when l.Href != null:
-                <a href="@l.Href" target="_blank" rel="noopener" class="btn btn-sm btn-@l.Variant">@l.Text</a>
+                <a href="@l.Href" target="_blank" rel="noopener" class="btn btn-sm btn-@l.Variant @(l.Icon != null ? "btn-i" : "") @(l.Text == "" ? "btn-io" : "")" title="@(l.Text != "" ? l.Text : null)" aria-label="@(l.Text != "" ? l.Text : l.Meta)">@BtnBody(l)</a>
+                break;
+            case LineKind.Btn when l.Act != null:
+                <button type="button" class="btn btn-sm btn-@l.Variant @(l.Icon != null ? "btn-i" : "") @(l.Text == "" ? "btn-io" : "")" disabled="@l.Disabled" data-act="@l.Act" title="@(l.Text != "" ? l.Text : null)" aria-label="@(l.Text != "" ? l.Text : l.Meta)">@BtnBody(l)</button>
                 break;
             case LineKind.Btn when l.Pop != null:
-                <button type="button" class="btn btn-sm btn-@l.Variant" disabled="@l.Disabled" data-pop="@l.Pop">@l.Text</button>
+                <button type="button" class="btn btn-sm btn-@l.Variant @(l.Icon != null ? "btn-i" : "") @(l.Text == "" ? "btn-io" : "")" disabled="@l.Disabled" data-pop="@l.Pop" title="@(l.Text != "" ? l.Text : null)" aria-label="@(l.Text != "" ? l.Text : l.Meta)">@BtnBody(l)</button>
                 break;
             case LineKind.Btn when l.ToastMsg != null:
-                <button type="button" class="btn btn-sm btn-@l.Variant" disabled="@l.Disabled" data-toast="@l.ToastMsg">@l.Text</button>
+                <button type="button" class="btn btn-sm btn-@l.Variant @(l.Icon != null ? "btn-i" : "") @(l.Text == "" ? "btn-io" : "")" disabled="@l.Disabled" data-toast="@l.ToastMsg" title="@(l.Text != "" ? l.Text : null)" aria-label="@(l.Text != "" ? l.Text : l.Meta)">@BtnBody(l)</button>
                 break;
             case LineKind.Btn:
-                <button type="button" class="btn btn-sm btn-@l.Variant" disabled="@l.Disabled">@l.Text</button>
+                <button type="button" class="btn btn-sm btn-@l.Variant @(l.Icon != null ? "btn-i" : "") @(l.Text == "" ? "btn-io" : "")" disabled="@l.Disabled" title="@(l.Text != "" ? l.Text : null)" aria-label="@(l.Text != "" ? l.Text : l.Meta)">@BtnBody(l)</button>
                 break;
-case LineKind.Select:
+            case LineKind.Link when l.Pop != null:
+                <button type="button" class="cell-link" style="@l.Style" data-pop="@l.Pop">@l.Text</button>
+                break;
+            case LineKind.Link:
+                <button type="button" class="cell-link" style="@l.Style" data-toast="@(l.ToastMsg ?? "No document is available yet.")">@l.Text</button>
+                break;
+            case LineKind.Select:
                 @* Shows the current value with an Edit button; Edit swaps in the drop-down, which saves as soon as it changes. *@
                 <span class="edit-sel" data-edit-sel>
                     <span class="edit-sel-view"><span class="chip chip-info">@l.Text</span><button type="button" class="btn btn-xs" data-edit-open aria-label="Edit: @l.Meta">Edit</button></span>
@@ -288,7 +310,7 @@ case LineKind.Select:
                 </span>
                 break;
             case LineKind.Chk:
-                <input type="checkbox" class="sel-chk" value="@l.Value" data-group="@l.Group" data-title="@l.Text" data-sub="@l.Sub" data-amt="@l.Amount" data-vi="@l.Vi" data-vid="@l.Vid" data-mbk="@l.Mbk" data-svc="@l.Svc" data-meta="@l.Meta" aria-label="Select service">
+                <input type="checkbox" class="sel-chk" value="@l.Value" data-group="@l.Group" data-title="@l.Text" data-sub="@l.Sub" data-amt="@l.Amount" data-vi="@l.Vi" data-vid="@l.Vid" data-legal="@l.Legal" data-mbk="@l.Mbk" data-svc="@l.Svc" data-meta="@l.Meta" aria-label="Select service">
                 break;
         }
     }
@@ -299,7 +321,7 @@ case LineKind.Select:
         {
             @* On phones each row becomes a card: header (first CardHead cells), body (caption | value rows), footer (last cell = actions). *@
             <table class="grid sub">
-                <thead><tr>@foreach (var c in d.Cols) { <th class="al-@c.Align">@c.L</th> }</tr></thead>
+                <thead><tr>@foreach (var c in d.Cols) { <th class="al-@c.Align @c.Cls" data-tip-below data-tip="@(c.Tip == null ? null : G.TipJson([new TipLine(c.Tip)]))">@c.L</th> }</tr></thead>
                 <tbody>
                     @for (var i = 0; i < d.Rows.Count; i++)
                     {

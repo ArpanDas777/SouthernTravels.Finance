@@ -10,10 +10,13 @@ public sealed record FilterVm(string Name, string Label, string Value, List<stri
 public sealed record PageBtn(string Label, string? Url, bool Active);
 public sealed record PagerVm(string Label, List<PageBtn> Pages, List<PageBtn> Sizes);
 public sealed record ToolBtn(string Label, string Pop, bool Primary = false);
+/// <summary>Bulk Payment toolbar: <paramref name="ProceedPopup"/> takes the ticked ids; the history button opens <paramref name="HistoryPopup"/>.</summary>
+public sealed record BulkBar(string ProceedPopup, string HistoryPopup, int HistoryCount, string StartLabel = "Bulk Payment", string HistoryLabel = "Bulk Payment History",
+    string Group = "advbulk", bool ExpandAll = false);
 
 public sealed class ReportVm
 {
-    public required string Title { get; init; }
+    public required string Title { get; set; }
     public required string Desc { get; init; }
     public bool Pill { get; init; }
     public List<Kpi> Kpis { get; init; } = [];
@@ -31,6 +34,8 @@ public sealed class ReportVm
     public List<ToolBtn> Tools { get; init; } = [];
     /// <summary>True when ticked services collect in the cart panel (Approved Vendor Payable). Otherwise a bulk action button appears in the toolbar.</summary>
     public bool Cart { get; init; }
+    /// <summary>Advance Report: toolbar for Bulk Payment (the bulk tick column, Proceed / Cancel and the history button); null elsewhere.</summary>
+    public BulkBar? Bulk { get; init; }
     public bool HasExport { get; init; } = true;
     public bool HasExpand { get; init; } = true;
     public List<Col> Cols { get; init; } = [];
@@ -52,9 +57,13 @@ public sealed class Col
     public bool SortActive { get; init; }
     /// <summary>Holds action buttons: on phones this column becomes the card footer.</summary>
     public bool Action { get; init; }
+    /// <summary>Tooltip on the column heading.</summary>
+    public string? Tip { get; init; }
+    /// <summary>Extra CSS class on the heading and its cells (e.g. "bulk-col": shown only in bulk mode).</summary>
+    public string? Cls { get; init; }
 }
 
-public enum LineKind { Text, Dot, Chip, Pill, Lv, Btn, Chk, Select }
+public enum LineKind { Text, Dot, Chip, Pill, Lv, Btn, Chk, Select, Link }
 
 public sealed class Line
 {
@@ -78,10 +87,16 @@ public sealed class Line
     /// <summary>Cart details of a selection checkbox: vendor index/ID, ticket MBK, service name, and the meta line.</summary>
     public int Vi { get; init; }
     public string? Vid { get; init; }
+    /// <summary>Vendor legal name, shown under the vendor in the cart.</summary>
+    public string? Legal { get; init; }
     public string? Mbk { get; init; }
     public string? Svc { get; init; }
     public string? Meta { get; init; }
     public string? DotColor { get; init; }
+    /// <summary>Icon for a button (shown instead of the text on wide screens; the text is its tooltip).</summary>
+    public string? Icon { get; init; }
+    /// <summary>A button that POSTs to this URL and reloads (see ActBtn).</summary>
+    public string? Act { get; init; }
     /// <summary>Select: the choices (Text is the chosen one, Pop the URL it posts to, Value the row key and Meta the label).</summary>
     public List<string>? Opts { get; init; }
 }
@@ -90,6 +105,7 @@ public sealed class Cell
 {
     public List<Line> Lines { get; init; } = [];
     public string Align { get; init; } = "left";
+    public string? Cls { get; init; }
 }
 
 public sealed class Fact

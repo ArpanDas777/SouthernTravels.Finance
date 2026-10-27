@@ -1,0 +1,22 @@
+@model TdsTableVm
+@* Bulk Payment / Create RTGS Advice: one row per ticket with its own TDS % (the row's TDS and net follow it; site.js adds them up in the strip). *@
+<div class="tbl-scroll">
+    <table class="pop-table stack-tbl">
+        <thead><tr><th>Ticket</th><th>Vendor</th><th>Service</th><th class="al-right">@Model.AmountLabel</th><th>TDS %</th><th class="al-right">TDS</th><th class="al-right">Net</th></tr></thead>
+        <tbody>
+            @foreach (var r in Model.Rows)
+            {
+                var s = r.S;
+                <tr data-bulk-row data-amt="@r.Amount">
+                    <td><span class="b link-ink">@s.T.Id</span><div class="pop-sub">@s.T.Mbk</div></td>
+                    <td><b>@s.V.Name</b><div class="pop-sub">@s.V.LegalName</div></td>
+                    <td>@(s.IsAcc ? s.Hotel : s.Name)<div class="pop-sub">@s.V.Type</div></td>
+                    <td class="al-right b num">@Fmt.Inr(r.Amount)</td>
+                    <td><input type="number" class="tbl-in" name="tds[@r.Sid]" min="0" max="100" step="0.01" placeholder="%" data-req data-pct-row aria-label="TDS % for @s.T.Id" aria-required="true"></td>
+                    <td class="al-right num" data-row-tds>-</td>
+                    <td class="al-right b num" data-row-net>-</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

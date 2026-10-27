@@ -3,7 +3,7 @@
     Layout = "_Modal";
     var s = Model.S;
     ViewData["Title"] = "Payment Advice";
-    ViewData["Sub"] = Model.AdviceNo + " · " + s.T.Id + " · " + s.V.Name;
+    ViewData["Sub"] = Model.AdviceNo + " · " + s.T.Id + " · " + s.V.Name + " · " + s.V.LegalName;
     ViewData["Width"] = 900;
 }
 @* Portrait A4 letter, black on white; the frame scrolls sideways on small screens and the letter is never reflowed. *@

@@ -3,10 +3,8 @@
 @{
     Layout = "_AdviceLayout";
     ViewData["Raw"] = true;
-    ViewData["DocHead"] = Model.Internal.Head;
-    ViewData["Signs"] = new string[0];
-    ViewData["FileName"] = "RTGS Advice " + Model.Internal.Rec.No + " (Internal and Bank)";
-    ViewData["ToolbarTitle"] = "RTGS letters · " + Model.Internal.Rec.No;
+    ViewData["FileName"] = Model.Internal.Name + " Advice " + Model.Internal.Rec.No + " (Internal and Bank)";
+    ViewData["ToolbarTitle"] = Model.Internal.Name + " letters · " + Model.Internal.Rec.No;
     ViewData["ToolbarHint"] = "Internal and Bank · " + Model.Internal.Rows.Count + " ticket(s) · " + Fmt.Inr(Model.Internal.Total);
 }
 @{ ViewData["SheetClass"] = "sheet-break"; }

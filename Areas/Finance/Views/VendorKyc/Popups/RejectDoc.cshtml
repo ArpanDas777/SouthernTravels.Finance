@@ -1,0 +1,17 @@
+@model KycRejectVm
+@{
+    Layout = "_Modal";
+    ViewData["Title"] = "Reject document";
+    ViewData["Sub"] = Model.Vendor.Id + " · " + Model.Vendor.Name + " · " + Model.Vendor.LegalName + " · " + Model.DocName;
+    ViewData["Width"] = 560;
+    ViewData["Action"] = "RejectDoc";
+}
+<input type="hidden" name="vi" value="@Model.Vi">
+<input type="hidden" name="key" value="@Model.Key">
+<label class="fld"><span class="fld-l">Reason<span class="req" aria-hidden="true">*</span></span>
+    <textarea name="reason" rows="3" class="fld-in" style="height:auto;padding:8px 10px;font-family:var(--font-ui)" maxlength="500" data-req aria-required="true" placeholder="Why is this document rejected?"></textarea>
+</label>
+@section Footer {
+    <button type="button" class="btn" data-close>Cancel</button>
+    <button type="submit" class="btn btn-soft" data-needs-valid disabled>Reject</button>
+}

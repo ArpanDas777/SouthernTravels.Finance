@@ -1,0 +1,28 @@
+@model Svc
+@{
+    Layout = "_Modal";
+    var b = Model.Bill!;
+    ViewData["Title"] = "Documents";
+    ViewData["Sub"] = Model.T.Id + " · " + Model.V.Name + " · " + Model.V.LegalName;
+    ViewData["Width"] = 560;
+    var docs = FinanceOptions.DocTypes(Model.V.Type);
+}
+@* Placeholder list: the documents expected for this service type, named after the bill. No files are stored yet, so the names show a toast. *@
+<div class="tbl-scroll">
+    <table class="pop-table stack-tbl">
+        <thead><tr><th>Document</th><th>File</th></tr></thead>
+        <tbody>
+            @for (var i = 0; i < docs.Length; i++)
+            {
+                var file = i == 0 ? b.Doc : docs[i].Replace(" ", "_").Replace("/", "-").Replace("&", "and") + "_" + b.No + ".pdf";
+                <tr>
+                    <td>@docs[i]@(i == 0 ? " (main bill)" : "")</td>
+                    <td><button type="button" class="fact-link" data-toast="No document is available yet.">@file</button></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+@section Footer {
+    <button type="button" class="btn" data-close>Close</button>
+}

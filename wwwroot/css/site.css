@@ -132,7 +132,7 @@ input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible
 .sel-chk { width: 16px; height: 16px; accent-color: var(--action); cursor: pointer; margin: 0; }
 
 /* ---------- grid ---------- */
-.grid-wrap { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; box-shadow: var(--shadow-sm); overflow: auto; flex: 1 1 auto; min-height: 240px; }
+.grid-wrap { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; box-shadow: var(--shadow-sm); overflow: visible; flex: none; }
 .grid { width: 100%; border-collapse: collapse; table-layout: auto; font-size: 12px; }
 .grid th { vertical-align: bottom; padding: 8px 6px; font-size: 9px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--thead-ink); background: var(--thead-bg); border-bottom: 1px solid var(--thead-rule); position: sticky; top: 0; z-index: 3; white-space: normal; overflow-wrap: normal; word-break: normal; }
 .grid th.sortable { white-space: nowrap; cursor: pointer; }
@@ -220,9 +220,6 @@ tr.detail > td { padding: 0; }
 .fld-in { height: 32px; border: 1px solid var(--field-rule); border-radius: 6px; padding: 0 10px; font: 13px var(--font-num); color: var(--ink); background: var(--card); }
 .fld-in.sel { padding: 0 8px; font-family: var(--font-ui); }
 .fld-ro { height: 32px; display: flex; align-items: center; padding: 0 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--card-sunken); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-.fld-file { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.fld-file input { font: 12.5px var(--font-ui); color: var(--ink-muted); }
-.fld-file-ok { color: var(--ok-ink); font-size: 12px; }
 
 .note-danger { background: var(--danger-bg); border: 1px solid var(--danger-rule); color: var(--danger-ink); border-radius: 6px; padding: 10px 12px; line-height: 1.5; }
 
@@ -357,6 +354,10 @@ tr.detail > td { padding: 0; }
     /* bottom cart sheet */
     .cart { position: fixed; left: 0; right: 0; bottom: 0; width: auto; max-height: 58vh; z-index: 130; border-radius: 0; border-width: 1px 0 0; box-shadow: 0 -6px 20px rgba(20, 48, 79, .14); padding-bottom: env(safe-area-inset-bottom); }
 
+}
+
+/* ---------- cards (< 1280px, the same width the menu becomes a drawer): a wide table would scroll sideways, so every row is a card ---------- */
+@media (max-width: 1279.98px) {
     /* every grid row becomes a card: header (chevron/tick + first fields) · body (caption | value) · footer (actions) */
     .grid-wrap { overflow: visible; background: transparent; border: 0; box-shadow: none; min-height: 0; }
     .grid, .grid tbody { display: block; background: transparent; }
@@ -443,8 +444,116 @@ tr.detail > td { padding: 0; }
 /* main has 8px top padding, so the bar sits 8px above its edge (top:-8px) and brings its own 8px back with padding-top. */
 .sticky-bar { position: sticky; top: -8px; z-index: 12; display: flex; flex-direction: column; gap: 12px; flex: none; margin-top: -8px; padding-top: 8px; background: var(--page); }
 /* the grid no longer scrolls on its own: the page does, so the sticky header attaches to main */
-.grid-wrap { overflow: visible; flex: none; min-height: 0; }
 .grid th { top: var(--stick-h, 64px); }
 .grid.sub th { top: auto; }
 /* inline filter panel (1100px and up) lives in the pinned bar, so on short windows it scrolls inside itself instead of eating the page */
 @media (min-width: 1100px) { .sticky-bar .filters-panel { max-height: 16vh; min-height: 84px; overflow-y: auto; } }
+
+/* ---------- phone: pop-up tables become stacked cards (labels come from the header cells, set by site.js) ---------- */
+@media (max-width: 767.98px) {
+    .stack-tbl, .stack-tbl tbody, .stack-tbl tr, .stack-tbl td { display: block; min-width: 0 !important; width: auto; white-space: normal; }
+    .stack-tbl thead { display: none; }
+    .stack-tbl tr { margin-bottom: 8px; padding: 4px 10px; border: 1px solid var(--rule); border-radius: 8px; background: var(--card); }
+    .stack-tbl td { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 5px 0; border: 0; border-bottom: 1px solid var(--rule-soft); text-align: right; }
+    .stack-tbl td:last-child { border-bottom: 0; }
+    .stack-tbl td::before { content: attr(data-label); flex: none; font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-muted-2); text-align: left; }
+    .stack-tbl td:empty { display: none; }
+    .tbl-scroll, .bill-hist-frame { overflow-x: visible; border: 0; }
+    .hist-btns { flex-wrap: wrap; justify-content: flex-end; white-space: normal; }
+    .rtgs-ticket { grid-template-columns: 22px minmax(0, 1fr) auto; }
+    .rtgs-ticket-svc { grid-column: 2 / -1; font-size: 11.5px; color: var(--ink-muted); }
+    .rtgs-bar { gap: 8px; }
+    .rtgs-pick { max-height: 40vh; }
+    .period-bar { margin-left: 0; width: 100%; }
+    .toolbar-hint { display: none; }
+}
+
+/* ---------- 24–26 Oct handoff ---------- */
+/* icon-only action buttons on wide screens (the text is the tooltip); phones and tablets show the text on the cards */
+.btn-i .bi { flex: none; }
+.btn-i .bi + .bt { margin-left: 5px; }
+@media (min-width: 1280px) { .btn-i { padding: 0; width: 28px; } .btn-i .bt { display: none; } .btn-i .bi + .bt { margin: 0; } }
+@media (max-width: 1279.98px) { .btn-i .bi { display: none; } .btn-i .bi + .bt { margin: 0; } }
+.cell-link { padding: 0; border: 0; background: none; font-family: inherit; color: var(--link); text-decoration: underline; cursor: pointer; text-align: inherit; }
+.cell-link:hover { color: var(--link-hover); }
+
+/* soft grid lines */
+@media (min-width: 1280px) {
+    .grid > tbody > tr.top > td.cell + td.cell { border-left: 1px solid var(--rule-soft); }
+    .grid > thead th + th { border-right: 1px solid var(--thead-rule); }
+    .grid.sub td.cell, .grid.sub th { border: 1px solid var(--rule); }
+}
+
+
+/* Upload Bill header block */
+.bill-head { margin: 0 0 10px; }
+.bill-head-t { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; font-weight: 700; color: var(--ink-strong); margin-bottom: 8px; }
+.bill-head-t .sep { color: var(--ink-faint); font-weight: 400; }
+.fact-link { color: var(--link); text-decoration: underline; background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.hist-item { border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; background: var(--card-sunken); font-size: 12px; margin-top: 8px; }
+.hist-item .hist-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px 12px; margin-top: 6px; }
+@media (max-width: 767.98px) { .hist-item .hist-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.scan-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.scan-row input[type=file] { flex: 1 1 140px; min-width: 0; }
+.scan-status { font-size: 11.5px; color: var(--ink-muted); }
+.scan-status.ok { color: var(--ok-ink); }
+.tbl-in { width: 80px; height: 26px; font-size: 12px; padding: 0 6px; border: 1px solid var(--field-rule); border-radius: 5px; background: var(--card); color: var(--ink); }
+.tbl-in.wide { width: 170px; }
+.tot-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0 0 12px; }
+.tot-strip > div { border: 1px solid var(--rule); border-radius: 8px; padding: 8px 10px; background: var(--card-sunken); }
+.tot-strip .l { font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-muted-2); }
+.tot-strip .v { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+@media (max-width: 767.98px) { .tot-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.fields.fields-auto { grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--fmin, 190px)), 1fr)); }
+[data-grid]:not(.is-bulk) .bulk-col { display: none; }
+.fields-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 767.98px) { .fields-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 479.98px) { .fields-3 { grid-template-columns: minmax(0, 1fr); } }
+.tip.below { transform: translate(-50%, 0); }
+.tip.below::after { bottom: auto; top: -5px; }
+
+/* card layout (phones and tablets): tighter title block, captions never wrap, compact drill-down cards */
+@media (max-width: 1279.98px) {
+    .grid td.card-h .cbox { line-height: 1.35; gap: 2px; }
+    .grid td.card-b::before { white-space: nowrap; }
+    .grid.sub tr { margin-bottom: 8px; }
+    .grid.sub td.card-b { padding: 5px 10px; gap: 4px 8px; }
+    .grid td.cell .cell-link { text-align: right; }
+}
+
+/* ---------- period picker popover ---------- */
+.period-bar { position: relative; }
+.period-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 150; display: flex; background: var(--card); border: 1px solid var(--rule); border-radius: 10px; box-shadow: var(--shadow-md, 0 8px 24px rgba(0,0,0,.18)); max-width: calc(100vw - 24px); }
+.period-rail { display: flex; flex-direction: column; gap: 2px; padding: 8px; border-right: 1px solid var(--rule); min-width: 120px; }
+.period-opt { text-align: left; padding: 7px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: 13px var(--font-ui); cursor: pointer; }
+.period-opt:hover { background: var(--row-hover); }
+.period-opt.on { background: var(--info-bg); color: var(--info-ink); font-weight: 600; }
+.period-body { display: flex; flex-direction: column; padding: 10px 12px; gap: 10px; }
+.period-cals { display: flex; gap: 16px; flex-wrap: wrap; }
+.cal { width: 224px; }
+.cal-head { display: flex; gap: 6px; margin-bottom: 6px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+.cal-dow { font-size: 10px; color: var(--ink-faint); padding: 2px 0; }
+.cal-day { height: 28px; border: 0; border-radius: 6px; background: transparent; color: var(--ink); font: 12px var(--font-num); cursor: pointer; }
+.cal-day:disabled { cursor: default; }
+.cal-day:not(:disabled):hover { background: var(--row-hover); }
+.cal-day.in { background: var(--info-bg); }
+.cal-day.end { background: var(--action); color: var(--on-action); }
+.cal-day.today { outline: 1px solid var(--action); }
+.period-foot { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--rule); padding-top: 8px; }
+@media (max-width: 767.98px) { .period-pop { flex-direction: column; left: 0; right: auto; } .period-rail { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--rule); } }
+.btn-io .bi { display: inline !important; }
+.btn-io .bt { display: none; }
+.btn-io { padding: 0; width: 28px; }
+
+/* ---------- Switch user (sidebar) ---------- */
+.side-mode { margin: auto 8px 0; display: flex; flex-direction: column; gap: 6px; }
+.side-mode + .side-user { margin-top: 8px; }
+.side-mode-l { font-size: 10px; letter-spacing: .06em; font-weight: 700; text-transform: uppercase; color: var(--nav-sub); padding: 0 2px; }
+.seg { display: flex; border: 1px solid var(--nav-chip-rule); border-radius: 6px; overflow: hidden; background: var(--nav-chip-bg); }
+.seg-b { flex: 1; border: 0; padding: 5px 6px; background: transparent; color: var(--nav-ink); font: 600 11.5px var(--font-ui); cursor: pointer; }
+.seg-b.on { background: var(--nav-active); color: var(--nav-ink-strong); }
+.side-mode-mini { align-self: center; width: 28px; height: 28px; border: 1px solid var(--nav-chip-rule); border-radius: 6px; background: var(--nav-chip-bg); color: var(--nav-ink-strong); font: 700 12px var(--font-ui); cursor: pointer; }
+
+/* Vendor Payable (Approval): the action icons sit in a grid, three across and two down (View Bill · View Docs · History / Approve · Reject) (desktop; cards keep their row) */
+@media (min-width: 1280px) { .act-grid .cbox { display: grid; grid-template-columns: repeat(3, max-content); gap: 4px; justify-content: center; } }

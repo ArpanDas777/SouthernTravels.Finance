@@ -2,65 +2,26 @@
 @{
     Layout = "_Modal";
     ViewData["Title"] = "Create RTGS Advice";
-    ViewData["Sub"] = "Step 1 of 2 — choose the tickets, then add the common details";
+    ViewData["Sub"] = Model.Pool.Count + " ticket" + (Model.Pool.Count == 1 ? "" : "s") + " selected — set the payment details and the TDS % for each";
     ViewData["Width"] = 1000;
-    if (Model.Pool.Count > 0) { ViewData["Action"] = "CreateRtgs"; }
-    var vendors = Model.Pool.GroupBy(s => s.Vi).ToList();
+    ViewData["Action"] = "CreateRtgs";
+    var total = Model.Pool.Sum(s => s.Bill?.Rec ?? 0);
+    var vendors = Model.Pool.Select(s => s.Vi).Distinct().Count();
 }
-@if (Model.Pool.Count == 0)
-{
-    <div class="empty">No unpaid RTGS tickets left to advise.</div>
-}
-else
-{
-    @* Tickets first: available tickets grouped by vendor, with a running count and total of what is ticked. *@
-    <div class="rtgs-bar">
-        <label class="rtgs-all"><input type="checkbox" class="sel-chk" data-check-all aria-label="Select all tickets"> Select all</label>
-        <span class="rtgs-avail"><b>@Model.Pool.Count</b> ticket@(Model.Pool.Count == 1 ? "" : "s") available · @vendors.Count vendor@(vendors.Count == 1 ? "" : "s") · @Fmt.Inr(Model.Pool.Sum(s => s.Bill?.Rec ?? 0))</span>
-        <span class="flex1"></span>
-        <span class="rtgs-picked">Selected: <b data-rtgs-n>0</b> · <b data-rtgs-sum>₹0</b></span>
-    </div>
-    <div class="rtgs-pick">
-        @foreach (var g in vendors)
-        {
-            <div class="rtgs-vendor">
-                <div class="rtgs-vendor-head">
-                    <span class="b strong">@g.First().V.Name</span> <span class="pop-sub">@g.First().V.Id</span>
-                    <span class="flex1"></span>
-                    <span class="muted fs12">@g.Count() ticket@(g.Count() == 1 ? "" : "s") · @Fmt.Inr(g.Sum(s => s.Bill?.Rec ?? 0))</span>
-                </div>
-                @foreach (var s in g)
-                {
-                    <label class="rtgs-ticket">
-                        <input type="checkbox" class="sel-chk" name="sid" value="@s.Id" data-rtgs-check data-amt="@(s.Bill?.Rec ?? 0)" aria-label="Select @s.T.Id">
-                        <span class="rtgs-ticket-id"><span class="b link-ink">@s.T.Id</span><span class="pop-sub">@s.T.Mbk</span></span>
-                        <span class="rtgs-ticket-svc">@s.Name</span>
-                        <span class="rtgs-ticket-amt b">@Fmt.Inr(s.Bill?.Rec ?? 0)</span>
-                    </label>
-                }
-            </div>
-        }
-    </div>
+<div class="tot-strip" style="grid-template-columns:repeat(5,minmax(0,1fr))">
+    <div><div class="l">Tickets selected</div><div class="v">@Model.Pool.Count</div></div>
+    <div><div class="l">Vendors</div><div class="v">@vendors</div></div>
+    <div><div class="l">Total amount</div><div class="v">@Fmt.Inr(total)</div></div>
+    <div><div class="l">Total TDS</div><div class="v" data-tot-tds>₹0</div></div>
+    <div><div class="l">Net payable</div><div class="v" style="color:var(--ok-ink)" data-tot-net>@Fmt.Inr(total)</div></div>
+</div>
 
-    <div class="sec">Common details (apply to every ticket)</div>
-    <div class="fields fields-5">
-        <label class="fld"><span class="fld-l">Sender Ac No.<span class="req" aria-hidden="true">*</span></span>
-            <select name="senderBank" class="fld-in sel" data-req aria-required="true">
-                <option value="">Select…</option>
-                @foreach (var b in Model.Banks) { <option value="@b">@b</option> }
-            </select>
-        </label>
-        <label class="fld"><span class="fld-l">Cheque No.<span class="req" aria-hidden="true">*</span></span><input type="text" name="chequeNo" class="fld-in" data-req aria-required="true"></label>
-        <label class="fld"><span class="fld-l">Cheque Date<span class="req" aria-hidden="true">*</span></span><input type="date" name="chequeDate" class="fld-in" data-req aria-required="true"></label>
-        <label class="fld"><span class="fld-l">Random No.<span class="req" aria-hidden="true">*</span></span><input type="text" name="randomNo" class="fld-in" data-req aria-required="true"></label>
-        <label class="fld"><span class="fld-l">Remarks (optional)</span><input type="text" name="remarks" class="fld-in" maxlength="200"></label>
-    </div>
-}
+<div class="sec nobar">Payment Details</div>
+<partial name="_PayFields" model="@(new PayFieldsVm("Date of Advance", AskRnd: true, DefaultMode: "RTGS"))" />
+
+<div class="sec">Tickets</div>
+<partial name="_TdsTable" model="@(new TdsTableVm("Payable", Model.Pool.Select(s => new TdsRow(s.Id, s, s.Bill?.Rec ?? 0)).ToList()))" />
 @section Footer {
-    <button type="button" class="btn" data-close>@(Model.Pool.Count == 0 ? "Close" : "Cancel")</button>
-    @if (Model.Pool.Count > 0)
-    {
-        @* Enabled once the common details are filled and at least one ticket is chosen. *@
-        <button type="submit" class="btn btn-confirm" data-needs-valid data-needs-checked disabled>Submit (0)</button>
-    }
+    <button type="button" class="btn" data-close>Cancel</button>
+    <button type="submit" class="btn btn-confirm" data-needs-valid disabled>Submit (@Model.Pool.Count)</button>
 }
