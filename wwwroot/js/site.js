@@ -65,17 +65,94 @@
         location.reload();
     });
 
+    // A [data-act] button POSTs to its URL with the page's antiforgery token and reloads, so the toast shows the result.
+    document.addEventListener('click', async e => {
+        const b = e.target.closest('[data-act]');
+        if (!b || b.disabled) return;
+        const fd = new FormData();
+        fd.set('__RequestVerificationToken', $('input[name=__RequestVerificationToken]').value);
+        fd.set('returnUrl', location.pathname + location.search);
+        b.disabled = true;
+        try { await fetch(b.dataset.act, { method: 'POST', body: fd, redirect: 'manual' }); } catch (err) { /* reload shows the real state */ }
+        location.reload();
+    });
+
     /* ---------- auto-submitting controls ---------- */
     document.addEventListener('change', e => {
         const el = e.target;
         if (el.matches('[data-autosubmit]') && el.form) el.form.requestSubmit ? el.form.requestSubmit() : el.form.submit();
     });
 
-    $$('[data-period-clear]').forEach(b => b.addEventListener('click', () => {
-        const f = $('#period-form');
-        f.elements.k.value = 'All time';
-        f.submit();
-    }));
+    /* ---------- period picker (Today · This Month · Custom) ---------- */
+    const periodForm = $('#period-form');
+    if (periodForm) {
+        const pop = $('[data-period-pop]', periodForm), calsEl = $('[data-period-cals]', periodForm), rangeEl = $('[data-period-range]', periodForm), btn = $('[data-period-btn]', periodForm);
+        const today = periodForm.dataset.today, MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const ymd = (y, m, d) => y + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        const fd = s => { const [y, m, d] = s.split('-'); return +d + ' ' + MON[+m - 1] + ' ' + String(y).slice(2); };
+        const monthStart = today.slice(0, 8) + '01';
+        let draft = null;
+        const rangeOf = k => k === 'Today' ? [today, today] : k === 'This Month' ? [monthStart, today] : [draft.from, draft.to];
+        const cal = (which, year, month) => {
+            const box = el('div', 'cal'), head = el('div', 'cal-head');
+            const ms = el('select', 'ctl ctl-28'), ys = el('select', 'ctl ctl-28');
+            MON.forEach((n, i) => { const o = el('option', '', n); o.value = i; o.selected = i === month; ms.append(o); });
+            for (let y = +today.slice(0, 4) - 5; y <= +today.slice(0, 4) + 1; y++) { const o = el('option', '', y); o.value = y; o.selected = y === year; ys.append(o); }
+            const redraw = () => { draft[which + 'View'] = [+ys.value, +ms.value]; render(); };
+            ms.addEventListener('change', redraw); ys.addEventListener('change', redraw);
+            head.append(ms, ys); box.append(head);
+            const grid = el('div', 'cal-grid');
+            ['M', 'T', 'W', 'T', 'F', 'S', 'S'].forEach(d => grid.append(el('span', 'cal-dow', d)));
+            const lead = (new Date(year, month, 1).getDay() + 6) % 7, days = new Date(year, month + 1, 0).getDate();
+            for (let i = 0; i < lead; i++) grid.append(el('span'));
+            const [from, to] = rangeOf(draft.k);
+            for (let d = 1; d <= days; d++) {
+                const s = ymd(year, month, d), b = el('button', 'cal-day', d);
+                b.type = 'button';
+                if (s >= from && s <= to) b.classList.add('in');
+                if (s === from || s === to) b.classList.add('end');
+                if (s === today) b.classList.add('today');
+                if (draft.k === 'Custom') b.addEventListener('click', () => { draft[which] = s; if (draft.from && draft.to && draft.from > draft.to) [draft.from, draft.to] = [draft.to, draft.from]; render(); });
+                else b.disabled = true;
+                grid.append(b);
+            }
+            box.append(grid);
+            return box;
+        };
+        function render() {
+            $$('[data-period-opt]', pop).forEach(b => b.classList.toggle('on', b.dataset.periodOpt === draft.k));
+            const [ty, tm] = [+today.slice(0, 4), +today.slice(5, 7) - 1];
+            const fv = draft.fromView || (draft.from ? [+draft.from.slice(0, 4), +draft.from.slice(5, 7) - 1] : [ty, tm]);
+            const tv = draft.toView || (draft.to ? [+draft.to.slice(0, 4), +draft.to.slice(5, 7) - 1] : [ty, tm]);
+            calsEl.replaceChildren(...(draft.k === 'Custom' ? [cal('from', ...fv), cal('to', ...tv)] : [cal('from', ty, tm)]));
+            const [a, b] = rangeOf(draft.k);
+            rangeEl.textContent = draft.k === 'Custom' && !(draft.from && draft.to) ? 'Pick a start and an end date' : fd(a) + (a === b ? '' : ' → ' + fd(b));
+            $('[data-period-apply]', pop).disabled = draft.k === 'Custom' && !(draft.from && draft.to);
+        }
+        const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            if (!pop.hidden) { close(); return; }
+            const k = periodForm.elements.k.value;
+            draft = { k: k === 'All time' ? 'This Month' : k, from: periodForm.elements.from.value, to: periodForm.elements.to.value };
+            pop.hidden = false; btn.setAttribute('aria-expanded', 'true'); render();
+        });
+        pop.addEventListener('click', e => {
+            e.stopPropagation();
+            const o = e.target.closest('[data-period-opt]');
+            if (o) { draft.k = o.dataset.periodOpt; render(); }
+        });
+        document.addEventListener('click', () => { if (!pop.hidden) close(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) close(); });
+        $('[data-period-cancel]', pop).addEventListener('click', close);
+        $('[data-period-apply]', pop).addEventListener('click', () => {
+            periodForm.elements.k.value = draft.k;
+            periodForm.elements.from.value = draft.k === 'Custom' ? draft.from : '';
+            periodForm.elements.to.value = draft.k === 'Custom' ? draft.to : '';
+            periodForm.submit();
+        });
+        $$('[data-period-clear]', periodForm).forEach(b => b.addEventListener('click', () => { periodForm.elements.k.value = 'All time'; periodForm.submit(); }));
+    }
 
     // Search filters as you type (debounced). After reload the box has `autofocus` when it holds a query.
     const search = $('[data-search]');
@@ -161,7 +238,7 @@
         const expanded = {};   // vendor index -> group row open
         const boxes = () => $$('.sel-chk[data-group="' + group + '"]');
 
-        const itemOf = c => ({ id: c.value, vi: c.dataset.vi, vid: c.dataset.vid, vname: c.dataset.sub, tid: c.dataset.title, mbk: c.dataset.mbk, svc: c.dataset.svc, meta: c.dataset.meta, amt: +c.dataset.amt || 0 });
+        const itemOf = c => ({ id: c.value, vi: c.dataset.vi, vid: c.dataset.vid, legal: c.dataset.legal, vname: c.dataset.sub, tid: c.dataset.title, mbk: c.dataset.mbk, svc: c.dataset.svc, meta: c.dataset.meta, amt: +c.dataset.amt || 0 });
         function remove(ids) {
             const gone = new Set(ids);
             items = items.filter(i => !gone.has(i.id));
@@ -190,7 +267,7 @@
                 const row = el('div', 'cart-grp'), name = el('div', 'cart-grp-name', mine[0].vname), x = el('button', 'cart-x', '✕');
                 const main1 = el('div'), meta = el('div', 'cart-grp-meta', new Set(mine.map(i => i.tid)).size + ' ticket(s) · ' + mine.length + ' service(s)');
                 name.append(el('span', 'cart-grp-id', mine[0].vid));
-                main1.append(name, meta);
+                main1.append(name, ...(mine[0].legal ? [el('div', 'cart-grp-meta', mine[0].legal)] : []), meta);
                 x.type = 'button'; x.setAttribute('aria-label', 'Remove all of this vendor');
                 x.addEventListener('click', e => { e.stopPropagation(); remove(mine.map(i => i.id)); });
                 row.append(el('span', 'cart-chev', open ? '▼' : '▶'), main1, el('span', 'cart-grp-amt', inr(mine.reduce((a, i) => a + i.amt, 0))), x);
@@ -247,6 +324,27 @@
         syncBulk();
     }
 
+    // Advance Report: Bulk Payment. Start shows the tick column (advances without payment details); Proceed opens the pop-up for the ticked ones.
+    const bulkStart = $('[data-bulk-start]');
+    if (bulkStart) {
+        const grid = $('[data-grid]'), go = $('[data-bulk-go]'), cancel = $('[data-bulk-cancel]');
+        const group = bulkStart.dataset.group, boxes = () => $$('.sel-chk[data-group="' + group + '"]'), ticked = () => boxes().filter(c => c.checked).map(c => c.value);
+        const sync = on => {
+            grid.classList.toggle('is-bulk', on);
+            $$('[data-bulk-off]').forEach(b => { b.hidden = on; });
+            go.hidden = cancel.hidden = !on;
+            go.textContent = 'Proceed (' + ticked().length + ')';
+        };
+        bulkStart.addEventListener('click', () => { sync(true); if (bulkStart.dataset.expand) $$('tr.top').forEach(r => setOpen(r, true)); syncExpandAll(); });
+        cancel.addEventListener('click', () => { boxes().forEach(c => { c.checked = false; }); sync(false); });
+        document.addEventListener('change', e => { if (e.target.matches('.sel-chk[data-group="' + group + '"]')) sync(true); });
+        go.addEventListener('click', () => {
+            const ids = ticked();
+            if (!ids.length) { showToast('Select at least one entry to proceed.'); return; }
+            openPopup(go.dataset.popType + '&sids=' + encodeURIComponent(ids.join(',')));
+        });
+    }
+
     /* ---------- toasts ---------- */
     const toast = $('#toast');
     let toastTimer;
@@ -274,7 +372,9 @@
         }));
         const r = el.getBoundingClientRect();
         tip.style.left = (r.left + r.width / 2) + 'px';
-        tip.style.top = (r.top - 8) + 'px';
+        const below = el.hasAttribute('data-tip-below');
+        tip.classList.toggle('below', below);
+        tip.style.top = below ? (r.bottom + 8) + 'px' : (r.top - 8) + 'px';
         tip.hidden = false;
     }
     const hideTip = () => { tip.hidden = true; };
@@ -287,6 +387,27 @@
     /* ---------- popups ---------- */
     const root = $('#modal-root');
     let lastFocus = null;
+
+    // Stacked tables (phone): each cell is labelled with its column heading.
+    function labelStacked(scope) {
+        $$('table.stack-tbl', scope).forEach(t => {
+            const heads = [...(t.tHead ? t.tHead.rows[0].cells : [])].map(th => th.textContent.trim());
+            [...t.tBodies].forEach(b => [...b.rows].forEach(r => [...r.cells].forEach((td, i) => { if (heads[i]) td.dataset.label = heads[i]; })));
+        });
+    }
+    // Printable sheets keep their A4 width; on a narrow screen they shrink to fit instead of scrolling sideways.
+    function fitDocs(scope) {
+        $$('.doc', scope).forEach(d => {
+            d.style.zoom = '';
+            const frame = d.closest('.doc-frame, .sheet-scroll'), room = frame ? frame.clientWidth - 24 : 0;
+            if (room > 0 && d.offsetWidth > room) d.style.zoom = (room / d.offsetWidth).toFixed(3);
+        });
+    }
+    labelStacked(document);
+    fitDocs(document);
+    window.addEventListener('resize', () => fitDocs(document));
+    window.addEventListener('beforeprint', () => $$('.doc').forEach(d => { d.dataset.z = d.style.zoom; d.style.zoom = ''; }));
+    window.addEventListener('afterprint', () => $$('.doc').forEach(d => { d.style.zoom = d.dataset.z || ''; }));
 
     async function openPopup(url) {
         hideTip();
@@ -304,6 +425,8 @@
             showToast('Could not open this view. Please refresh and try again.');
             return;
         }
+        labelStacked(root);
+        fitDocs(root);
         $$('[data-return]', root).forEach(i => { i.value = returnUrl(); });
         wireForm($('form.js-validate', root));
         const first = $('input:not([type=hidden]), select, button:not([data-close])', root) || $('[data-close]', root);
@@ -342,72 +465,110 @@
                 i.setAttribute('aria-required', String(req));
             });
             let ok = fields.filter(isRequired).every(i => i.type === 'file' ? i.files.length > 0 : i.value.trim() !== '');
-            // Create RTGS Advice: at least one ticket must be ticked; the button shows how many.
-            const ticks = $$('[data-rtgs-check]', form);
-            if (ticks.length) {
-                const n = ticks.filter(c => c.checked).length;
+            // Update UTR (Bulk Payment): at least one UTR must be entered; the button shows how many.
+            const utrs = $$('[data-utr-in]', form);
+            if (utrs.length) {
+                const n = utrs.filter(i => i.value.trim() !== '').length;
                 ok = ok && n > 0;
-                $$('[data-needs-checked]', form).forEach(b => { b.textContent = 'Submit (' + n + ')'; });
-                const nEl = $('[data-rtgs-n]', form), sumEl = $('[data-rtgs-sum]', form);
-                if (nEl) nEl.textContent = n;
-                if (sumEl) sumEl.textContent = inr(ticks.filter(c => c.checked).reduce((a, c) => a + (+c.dataset.amt || 0), 0));
+                $$('[data-needs-utr]', form).forEach(b => { b.textContent = 'Save UTR (' + n + ')'; });
             }
             $$('[data-needs-valid]', form).forEach(b => { b.disabled = !ok; });
-            // Raise Bill: a per-service button only needs that service's own fields.
-            $$('[data-needs-svc]', form).forEach(b => {
-                b.disabled = !fields.filter(i => i.dataset.svc === b.dataset.needsSvc && isRequired(i))
-                    .every(i => i.type === 'file' ? i.files.length > 0 : i.value.trim() !== '');
-            });
+            // Upload Bill: an invoice above the vendor payable shows the mismatch reason, blocks Submit (for a new upload) and allows a dispute.
+            const blocks = $$('[data-svc-block]', form);
+            if (blocks.length) {
+                const st = blocks.map(b => {
+                    const inv = parseFloat($('[data-inv]', b).value), over = inv > +b.dataset.payable, file = $('[data-main] input[type=file]', b).files.length > 0;
+                    $('[data-mismatch]', b).hidden = !over;
+                    return { over, file };
+                });
+                $$('[data-needs-valid]', form).forEach(b => { b.disabled = !ok || (b.dataset.blockOver === '1' && st.some(s => s.over)); });
+                $$('[data-needs-dispute]', form).forEach(b => { b.disabled = !st.every(s => s.over && s.file); });
+                $$('[data-needs-dispute-svc]', form).forEach(b => { const s = st[+b.dataset.needsDisputeSvc]; b.disabled = !(s.over && s.file); });
+            }
         };
-        // Scan: fetch a scanned document from the scanner service on this PC and drop it into the file field next to the button.
+        // Upload opens the (hidden) file chooser of its own document row.
+        form.addEventListener('click', e => {
+            const up = e.target.closest('[data-upload-btn]');
+            if (up) $('input[type=file]', up.parentElement).click();
+        });
+        // Scan: with no file chosen, fetch a scanned document from the scanner service on this PC (a simulated page when it cannot be reached);
+        // with a file chosen, scan it. Scanning the main bill reads the amount (simulated: the vendor payable) into Amount as per Invoice.
         form.addEventListener('click', async e => {
             const btn = e.target.closest('[data-scan]');
             if (!btn) return;
-            const input = $('input[type=file]', btn.parentElement);
-            if (!btn.dataset.scanUrl) { showToast('No scanner is configured (Scanner:Url in appsettings.json).'); return; }
+            const row = btn.closest('[data-doc]') || btn.parentElement, input = $('input[type=file]', row), status = $('[data-scan-status]', row);
+            let simulated = false;
             btn.disabled = true; btn.textContent = 'Scanning…';
-            try {
-                const res = await fetch(btn.dataset.scanUrl, { method: 'POST' });
-                if (!res.ok) throw new Error(res.status);
-                const blob = await res.blob(), ext = blob.type.includes('pdf') ? 'pdf' : blob.type.includes('png') ? 'png' : 'jpg';
+            if (!input.files.length) {
+                let blob = null;
+                if (btn.dataset.scanUrl) {
+                    try {
+                        const res = await fetch(btn.dataset.scanUrl, { method: 'POST' });
+                        if (!res.ok) throw new Error(res.status);
+                        blob = await res.blob();
+                    } catch (err) { blob = null; }
+                }
+                if (!blob) { blob = new Blob(['simulated scan'], { type: 'application/pdf' }); simulated = true; }
+                const ext = blob.type.includes('pdf') ? 'pdf' : blob.type.includes('png') ? 'png' : 'jpg';
                 const dt = new DataTransfer();
                 dt.items.add(new File([blob], 'scan-' + Date.now() + '.' + ext, { type: blob.type }));
                 input.files = dt.files;
                 input.dispatchEvent(new Event('change', { bubbles: true }));
-            } catch (err) { showToast('Scanner not reachable — check the scanner service is running.'); }
+            }
+            let msg = 'Scanned ✓';
+            if (row.hasAttribute('data-main')) {
+                const inv = $('[data-inv]', row.closest('[data-svc-block]'));
+                if (inv) { inv.value = row.dataset.pay; inv.dispatchEvent(new Event('input', { bubbles: true })); }
+                msg += ' · amount read ' + inr(+row.dataset.pay);
+            }
+            if (simulated) msg += ' (simulated — scanner not reachable)';
+            row.dataset.scanned = '1';
+            if (status) { status.textContent = msg; status.classList.add('ok'); }
             btn.disabled = false; btn.textContent = 'Scan';
         });
         form.addEventListener('input', validate);
         form.addEventListener('change', e => {
             const el = e.target;
-            if (el.matches('[data-check-all]')) $$('[data-rtgs-check]', form).forEach(c => { c.checked = el.checked; });
-            // the select-all box mirrors the rows
-            if (el.matches('[data-rtgs-check]')) $('[data-check-all]', form).checked = $$('[data-rtgs-check]', form).every(c => c.checked);
             if (el.matches('[data-file]')) {
-const fld = el.closest('.fld'), grp = el.closest('.fields'), stamp = grp && $('[data-file-stamp]', grp);
-                $('[data-file-text]', fld).textContent = el.files.length ? el.files[0].name + ' selected' : '';
-                if (stamp) stamp.textContent = $$('[data-file]', grp).some(f => f.files.length) ? 'Will be set on submit' : '-';
+                // choosing (or clearing) a file resets its scan
+                const doc = el.closest('[data-doc]'), status = $('[data-scan-status]', doc);
+                doc.dataset.scanned = '';
+                status.classList.remove('ok');
+                status.textContent = el.files.length ? el.files[0].name + ' · Ready to scan' : 'No file chosen';
             }
             if (el.matches('[data-ctype]')) {
                 const lbl = $('[data-no-label]', form);
-                if (lbl) lbl.textContent = el.value === 'Online' ? 'UTR / Transaction No.' : 'Cheque No.';
+                if (lbl) lbl.textContent = el.value === 'E-Cheque' ? 'Request No.' : 'Cheque No.';
             }
             validate();
         });
         const calc = $('[data-tds-calc]', form);
         if (calc) {
             const amt = +calc.dataset.amt, pct = $('[data-pct]', calc);
-            // Amount Paid follows the net payable until the user types their own figure.
-            const paid = $('[data-amount-auto]', form);
-            if (paid) paid.addEventListener('input', () => { paid.dataset.edited = paid.value.trim() !== '' ? '1' : ''; });
             pct.addEventListener('input', () => {
                 const p = parseFloat(pct.value);
                 const tds = isNaN(p) ? null : Math.round(amt * p / 100);
                 $('[data-tds]', calc).textContent = tds == null ? '-' : inr(tds);
                 $('[data-net]', calc).textContent = tds == null ? '-' : inr(amt - tds);
-                if (paid && !paid.dataset.edited) paid.value = tds == null ? '' : String(amt - tds);
                 validate();
             });
+        }
+        // Bulk Payment: each row's TDS and net follow its TDS %, and the strip on top follows the rows.
+        const bulkRows = $$('[data-bulk-row]', form);
+        if (bulkRows.length) {
+            const recalc = () => {
+                let adv = 0, tds = 0;
+                bulkRows.forEach(r => {
+                    const amt = +r.dataset.amt, p = parseFloat($('[data-pct-row]', r).value), t = isNaN(p) ? 0 : Math.round(amt * p / 100);
+                    $('[data-row-tds]', r).textContent = isNaN(p) ? '-' : inr(t);
+                    $('[data-row-net]', r).textContent = isNaN(p) ? '-' : inr(amt - t);
+                    adv += amt; tds += t;
+                });
+                $('[data-tot-tds]', form).textContent = inr(tds);
+                $('[data-tot-net]', form).textContent = inr(adv - tds);
+            };
+            form.addEventListener('input', e => { if (e.target.matches('[data-pct-row]')) recalc(); });
+            recalc();
         }
         form.addEventListener('submit', () => {
             // A Raise Bill / Submit that came from the cart takes its services out of the stored cart.

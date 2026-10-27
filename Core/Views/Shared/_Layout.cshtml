@@ -49,6 +49,17 @@
                         </a>
                     }
                 </nav>
+                @* Switch user: User or Approver. Posts to /Session/SetMode and comes back to the page. *@
+                <form method="post" action="/Session/SetMode" class="side-mode" id="mode-form">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="returnUrl" value="@(Context.Request.Path + Context.Request.QueryString)">
+                    <span class="side-mode-l when-open">Switch user</span>
+                    <span class="seg when-open">
+                        <button type="submit" name="m" value="user" class="seg-b @(ctx.Approver ? "" : "on")" aria-pressed="@(!ctx.Approver)">User</button>
+                        <button type="submit" name="m" value="approver" class="seg-b @(ctx.Approver ? "on" : "")" aria-pressed="@ctx.Approver">Approver</button>
+                    </span>
+                    <button type="submit" name="m" value="@(ctx.Approver ? "user" : "approver")" class="side-mode-mini when-closed" title="Switch user" aria-label="Switch user">@(ctx.Approver ? "A" : "U")</button>
+                </form>
                 <div class="side-user" title="@ctx.UserName · @ctx.UserRole">
                     <span class="avatar">@ctx.UserName[0]</span>
                     <div class="who when-open">

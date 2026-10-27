@@ -9,6 +9,6 @@ public interface ISessionSecurityService
 /// <summary>Session keys shared by the login, the middleware and <see cref="SessionSecurityService"/>.</summary>
 public static class SessionKeys
 {
-    public const string UserId = "UserId", UserName = "UserName", Email = "Email", AccessToken = "accessToken", RefreshToken = "refreshToken",
-        HandlingBranch = "HandlingBranch", TenantId = "TenantId", IsAdmin = "IsAdmin", LoginTime = "LoginTime";
+    public const string UserId = "UserId", UserName = "UserName", Email = "Email", AccessToken = "accessToken", RefreshToken = "refreshToken", Role = "Role",
+        HandlingBranch = "HandlingBranch", TenantId = "TenantId", IsAdmin = "IsAdmin", LoginTime = "LoginTime", Mode = "Mode";
 }

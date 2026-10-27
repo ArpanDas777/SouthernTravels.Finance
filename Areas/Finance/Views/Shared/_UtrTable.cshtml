@@ -1,0 +1,25 @@
+@model UtrTableVm
+@* Update UTR / Update Details: a UTR per ticket (partial saves are fine); a ticket that already has one shows Paid. *@
+<input type="hidden" name="no" value="@Model.No">
+<div class="tbl-scroll">
+    <table class="pop-table stack-tbl">
+        <thead><tr><th>Ticket</th><th>Vendor</th><th>Service</th><th class="al-right">Net payable</th><th>UTR / Transaction No.</th><th>Status</th></tr></thead>
+        <tbody>
+            @foreach (var r in Model.Rows)
+            {
+                var s = r.S;
+                <tr>
+                    <td><span class="b link-ink">@s.T.Id</span><div class="pop-sub">@s.T.Mbk</div></td>
+                    <td><b>@s.V.Name</b><div class="pop-sub">@s.V.LegalName</div></td>
+                    <td>@(s.IsAcc ? s.Hotel : s.Name)</td>
+                    <td class="al-right b num">@Fmt.Inr(r.Net)</td>
+                    <td>
+                        @if (r.Paid) { <span class="num">@r.Utr</span> }
+                        else { <input type="text" class="tbl-in wide" name="utr[@r.Sid]" data-utr-in aria-label="UTR for @s.T.Id"> }
+                    </td>
+                    <td>@if (r.Paid) { <span class="chip chip-ok">Paid</span> } else { <span class="chip chip-warn">UTR awaited</span> }</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>

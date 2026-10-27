@@ -64,6 +64,31 @@ public class AccountController(IAccountService account) : Controller
         return LocalRedirect(returnUrl ?? Home);
     }
 
+    /* ---------- Bypass login (Development only; the OTP login above is unchanged) ---------- */
+
+    /// <summary>The bypass accounts (username = password): admin (Finance view), mounika (Approver, L2) and vijay (Approver, read-only).</summary>
+    static readonly Dictionary<string, (string Name, string Role)> BypassUsers = new()
+    {
+        ["admin"] = ("Admin", "finance"), ["mounika"] = ("Mounika", "approver"), ["vijay"] = ("Vijay", "approver-ro"),
+    };
+
+    /// <summary>Signs in with a fixed bypass account (see <see cref="BypassUsers"/>), so the app can be used without the OTP service. Only works in Development.</summary>
+    [HttpPost("BypassLogin")]
+    public IActionResult BypassLogin(string? username, string? password, string? returnUrl, [FromServices] IWebHostEnvironment env)
+    {
+        var to = LocalOrNull(returnUrl);
+        if (!env.IsDevelopment()) return NotFound();
+        var user = username?.Trim().ToLowerInvariant() ?? "";
+        if (!BypassUsers.TryGetValue(user, out var u) || password != user)
+        {
+            TempData["LoginError"] = "Incorrect username or password.";
+            return RedirectToAction(nameof(Login), new { returnUrl = to });
+        }
+        SetUserSession(new LoginUser { UserName = user, Name = u.Name, Email = user, accessToken = "bypass", refreshToken = "", IsAdmin = user == "admin", TenantId = 1 }, user);
+        HttpContext.Session.SetString(SessionKeys.Role, u.Role);
+        return LocalRedirect(to ?? Home);
+    }
+
     [HttpGet("Logout"), HttpPost("Logout")]
     [IgnoreAntiforgeryToken]
     public IActionResult Logout()

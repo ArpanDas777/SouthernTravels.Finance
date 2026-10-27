@@ -1,0 +1,17 @@
+@model BulkUtrVm
+@{
+    Layout = "_Modal";
+    ViewData["Title"] = "Update UTR / Transaction";
+    ViewData["Sub"] = Model.Rec.No + " · " + Model.Items.Count + " advance(s) — enter the UTR of each; the rest can follow later";
+    ViewData["Width"] = 900;
+    ViewData["Action"] = "BulkUtr";
+    var rows = Model.Items.Select(i => new UtrRow(i.Req.Sid, i.Service, i.Req.Pay?.Net ?? i.Req.Amt, i.Req.Paid, i.Req.Pay?.Utr)).ToList();
+}
+<partial name="_UtrTable" model="@(new UtrTableVm(Model.Rec.No, rows))" />
+@section Footer {
+    <button type="button" class="btn" data-close>Cancel</button>
+    @if (rows.Any(r => !r.Paid))
+    {
+        <button type="submit" class="btn btn-confirm" data-needs-valid data-needs-utr disabled>Save UTR (0)</button>
+    }
+}

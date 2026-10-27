@@ -27,4 +27,7 @@ public sealed class LayoutCtx
     public string? Toast { get; set; }
     /// <summary>A pop-up URL to open as soon as the page loads (e.g. "RTGS Advice generated" after creating one).</summary>
     public string? AutoPopup { get; init; }
+    /// <summary>Approver (L2) view: the Approval variants of the reports. ReadOnly: the approver may look but not act.</summary>
+    public bool Approver { get; init; }
+    public bool ReadOnly { get; init; }
 }

@@ -7,7 +7,7 @@
     var mode = b.Paid ? (b.Mode ?? b.Pm ?? "RTGS") : (b.Pm ?? "RTGS");
 }
 <div class="doc-to-row">
-    <p class="doc-to">To,<br><b>@s.V.Name</b> (@s.V.Id)<br>@s.V.City</p>
+    <p class="doc-to">To,<br><b>@s.V.Name</b> (@s.V.Id)<br>@s.V.LegalName<br>@s.V.City</p>
     <span class="doc-status @(b.Paid ? "st-paid" : "st-pending")">@(b.Paid ? "PAID" : "PAYMENT PENDING")</span>
 </div>
 <p class="doc-subject">Subject: Payment advice — @s.T.Id (@s.T.Mbk)</p>

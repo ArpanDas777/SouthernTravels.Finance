@@ -10,7 +10,7 @@ namespace SouthernTravels.Areas.Finance.Controllers;
 public class VendorPayableController(IFinanceService finance) : FinanceControllerBase(finance)
 {
     [HttpGet("")]
-    public IActionResult Index() => Report("VendorPayable", "Bill Date", r => r.VendorPayable());
+    public IActionResult Index() => Report("VendorPayable", "Bill Date", r => Ctx.Approver ? r.VendorPayableApproval() : r.VendorPayable());
 
     /* ---------- popups (loaded into the modal by site.js) ---------- */
 
@@ -25,9 +25,12 @@ public class VendorPayableController(IFinanceService finance) : FinanceControlle
                 var set = (ids ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
                 var ss = set.Select(x => all.FirstOrDefault(s => s.Id == x)).OfType<Svc>()
                     .Where(s => re == 1 ? s.Bill != null : s.Eligible).ToList();
-                var vendors = ss.Select(s => s.Vi).ToHashSet();
-                var billHist = all.Where(s => s.Bill != null && vendors.Contains(s.Vi)).ToList();
-                return ss.Count == 0 ? NotFound() : View("Popups/Raise", new RaiseVm(ss, re == 1, billHist));
+                return ss.Count == 0 ? NotFound() : View("Popups/Raise", new RaiseVm(ss, re == 1));
+            }
+            case "rejapv" or "aprhist":
+            {
+                var s = all.FirstOrDefault(x => x.Id == id);
+                return s?.Bill == null ? NotFound() : View(t == "rejapv" ? "Popups/RejectApproval" : "Popups/ApprovalHistory", s);
             }
             case "viewbill":
             {
@@ -43,20 +46,55 @@ public class VendorPayableController(IFinanceService finance) : FinanceControlle
     [HttpPost("RaiseBill")]
     public async Task<IActionResult> RaiseBill(RaiseForm form)
     {
+        var all = St.Svcs();
         var items = form.Items.Where(i => !string.IsNullOrEmpty(i.Sid)).ToList();
-        // Kind: "R" raises every service, "D" disputes every service, "D:<sid>" disputes just that one.
+        // Kind: "R" submits every service, "D" disputes every service, "D:<sid>" disputes just that one.
         if (form.Kind.StartsWith("D:")) items = items.Where(i => i.Sid == form.Kind[2..]).ToList();
-        var valid = items.Count > 0 && items.All(i => !string.IsNullOrWhiteSpace(i.Date) && !string.IsNullOrWhiteSpace(i.No) && i.File != null && i.Voucher != null && i.Inv > 0 && i.Rec > 0);
-        if (!valid) return Back(form.ReturnUrl, "Bill not saved — every field is required.");
         var kind = form.Kind.StartsWith("D") ? "D" : "R";
+        int Payable(string sid) => all.FirstOrDefault(s => s.Id == sid)?.Neg ?? 0;
+        // A dispute needs the file and an invoice above the vendor payable; a bill also needs its date and number, and (for a first upload) an invoice not above the payable.
+        bool Ok(RaiseItem i) => i.File != null && i.Inv > 0 && (kind == "D"
+            ? i.Inv > Payable(i.Sid)
+            : !string.IsNullOrWhiteSpace(i.Date) && !string.IsNullOrWhiteSpace(i.No) && (form.Reupload == 1 || i.Inv <= Payable(i.Sid)));
+        if (items.Count == 0 || !items.All(Ok)) return Back(form.ReturnUrl, kind == "D" ? "Dispute not raised — choose the bill and enter an amount above the vendor payable." : "Bill not saved — fill every required field.");
         var stamp = Clock.NowStamp();
-        // The uploaded file is not stored yet; only its name is kept until a document store is connected.
-        var res = await Finance.RaiseBillsAsync(items.Select(i => (i.Sid, new Bill
+        // The uploaded files are not stored yet; only their names are kept until a document store is connected.
+        var res = await Finance.RaiseBillsAsync(items.Select(i =>
         {
-            St = kind, Date = i.Date!, No = i.No!.Trim(), Doc = Path.GetFileName(i.File!.FileName), Voucher = Path.GetFileName(i.Voucher!.FileName), Inv = (int)i.Inv!.Value, Rec = (int)i.Rec!.Value,
-            Upl = stamp, L1 = new Approval { St = "Q" }, L2 = new Approval { St = "-" },
-        })).ToList());
+            int inv = (int)i.Inv!.Value, pay = Payable(i.Sid);
+            // A reupload that still exceeds the payable stays a dispute.
+            var st = kind == "D" || inv > pay ? "D" : "R";
+            return (i.Sid, new Bill
+            {
+                St = st, Date = string.IsNullOrWhiteSpace(i.Date) ? Clock.Today : i.Date, No = i.No?.Trim() ?? "", Doc = Path.GetFileName(i.File!.FileName),
+                Extra = i.Extra != null ? Path.GetFileName(i.Extra.FileName) : "", Inv = inv, Rec = Math.Min(inv, pay), Mr = inv > pay ? i.Mr?.Trim() ?? "" : "",
+                Upl = stamp, L1 = new Approval { St = "Q" }, L2 = new Approval { St = "-" },
+            });
+        }).ToList());
         if (!res.Success) return Back(form.ReturnUrl, SaveFailed(res.Message, "Bill not saved."));
         return Back(form.ReturnUrl, kind == "R" ? $"Bill submitted for {items.Count} service(s)." : $"Dispute raised for {items.Count} service(s).");
+    }
+
+    /* ---------- approver (L2) actions ---------- */
+
+    /// <summary>Approves a bill that L1 has approved.</summary>
+    [HttpPost("Approve")]
+    public async Task<IActionResult> Approve(string sid, string? returnUrl)
+    {
+        if (!Ctx.Approver || Ctx.ReadOnly) return Back(returnUrl, "You do not have permission to approve.");
+        var res = await Finance.ApproveBillAsync(sid, Ctx.UserName);
+        var s = St.Svcs().FirstOrDefault(x => x.Id == sid);
+        return Back(returnUrl, res.Success ? $"L2 approved — {s?.T.Id} · {s?.Bill?.No}." : SaveFailed(res.Message, "Bill not approved."));
+    }
+
+    /// <summary>Rejects a bill, or marks it as disputed; the reason is required.</summary>
+    [HttpPost("RejectBill")]
+    public async Task<IActionResult> RejectBill(string sid, string? kind, string? reason, string? returnUrl)
+    {
+        if (!Ctx.Approver || Ctx.ReadOnly) return Back(returnUrl, "You do not have permission to reject.");
+        if (kind is not ("Rejected" or "Disputed") || string.IsNullOrWhiteSpace(reason)) return Back(returnUrl, "Not saved — choose Rejected or Disputed and give a reason.");
+        var res = await Finance.RejectBillAsync(sid, kind, reason.Trim(), Ctx.UserName);
+        var s = St.Svcs().FirstOrDefault(x => x.Id == sid);
+        return Back(returnUrl, res.Success ? $"L2 rejected / disputed — {s?.T.Id} · {s?.Bill?.No}." : SaveFailed(res.Message, "Bill not saved."));
     }
 }

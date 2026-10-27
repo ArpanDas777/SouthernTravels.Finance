@@ -1,32 +1,43 @@
-@* Period filter: shown on the right of each report's title row. Posts to /Session/SetPeriod and returns to the same page. *@
+@* Period filter: shown on the right of each report's title row. A button opens a date-picker popover (Today · This Month · Custom);
+   Apply posts to /Session/SetPeriod and returns to the same page. site.js builds the calendars. *@
 @{
     var ctx = (LayoutCtx)ViewData["Ctx"]!;
     var returnUrl = Context.Request.Path + Context.Request.QueryString;
+    var label = ctx.PeriodKind switch
+    {
+        "Custom" => (ctx.PeriodFrom != "" ? Fmt.Fd(ctx.PeriodFrom) : "…") + " – " + (ctx.PeriodTo != "" ? Fmt.Fd(ctx.PeriodTo) : "…"),
+        var k => k,
+    };
 }
-<form method="post" action="/Session/SetPeriod" class="bar period-bar m0" id="period-form">
+<form method="post" action="/Session/SetPeriod" class="bar period-bar m0" id="period-form" data-today="@Clock.Today">
     @Html.AntiForgeryToken()
     <input type="hidden" name="returnUrl" value="@returnUrl">
+    <input type="hidden" name="k" value="@ctx.PeriodKind">
+    <input type="hidden" name="from" value="@ctx.PeriodFrom">
+    <input type="hidden" name="to" value="@ctx.PeriodTo">
     <span class="bar-label">Period</span>
-    <select name="k" class="ctl ctl-28" data-autosubmit>
-        @foreach (var k in DemoSession.PeriodKinds)
-        {
-            <option value="@k" selected="@(k == ctx.PeriodKind)">@k</option>
-        }
-    </select>
-    @if (ctx.PeriodKind == "Custom")
-    {
-        <input type="date" name="from" value="@ctx.PeriodFrom" class="ctl ctl-28 num" data-autosubmit aria-label="Period from">
-        <span class="faint">→</span>
-        <input type="date" name="to" value="@ctx.PeriodTo" class="ctl ctl-28 num" data-autosubmit aria-label="Period to">
-    }
-    else
-    {
-        <input type="hidden" name="from" value="@ctx.PeriodFrom">
-        <input type="hidden" name="to" value="@ctx.PeriodTo">
-    }
+    <button type="button" class="btn btn-sm period-btn" data-period-btn aria-haspopup="dialog" aria-expanded="false">@label ▾</button>
     @if (ctx.PeriodText != null)
     {
         <span class="period-info">Filtering by @ctx.PeriodField @ctx.PeriodText</span>
         <button type="button" class="btn btn-sm btn-ghost" data-period-clear>Clear</button>
     }
+    <div class="period-pop" data-period-pop role="dialog" aria-label="Choose period" hidden>
+        <div class="period-rail">
+            @foreach (var k in new[] { "Today", "This Month", "Custom" })
+            {
+                <button type="button" class="period-opt" data-period-opt="@k">@k</button>
+            }
+        </div>
+        <div class="period-body">
+            <div class="period-cals" data-period-cals></div>
+            <div class="period-foot">
+                <span class="muted fs12" data-period-range></span>
+                <span class="flex1"></span>
+                <button type="button" class="btn btn-sm btn-ghost" data-period-clear>Clear</button>
+                <button type="button" class="btn btn-sm" data-period-cancel>Cancel</button>
+                <button type="button" class="btn btn-sm btn-primary" data-period-apply>Apply</button>
+            </div>
+        </div>
+    </div>
 </form>

@@ -28,10 +28,10 @@ public sealed partial class FinanceReports
     /// The planned payment mode, chosen per vendor right on its line. Changing it re-plans every line that is still open
     /// (unpaid and not yet in an RTGS advice); with none open the mode is shown as a plain label.
     /// </summary>
-    static Cell ModeCell(List<PrRow> bs)
+    Cell ModeCell(List<PrRow> bs)
     {
         var open = bs.Where(r => !r.B.Paid && r.B.RtgsNo == null).ToList();
-        if (open.Count == 0) return C(Chip(bs.Select(r => r.B.Pm ?? "RTGS").Distinct().Count() == 1 ? bs[0].B.Pm ?? "RTGS" : "Mixed", "info"));
+        if (open.Count == 0 || readOnly) return C(Chip(bs.Select(r => r.B.Pm ?? "RTGS").Distinct().Count() == 1 ? bs[0].B.Pm ?? "RTGS" : "Mixed", "info"));
         var modes = open.Select(r => r.B.Pm ?? "RTGS").Distinct().ToList();
         return C(Select(modes.Count == 1 ? modes[0] : "Mixed", [.. (modes.Count == 1 ? [] : new[] { "Mixed" }), .. FinanceOptions.PlanModes],
             "/Finance/PaymentRequest/SetMode", open[0].S.Id, "Payment mode for " + open[0].S.V.Name));
@@ -62,7 +62,8 @@ public sealed partial class FinanceReports
             K("Sent for Payment", rows.Count(r => PrStatus(r.B) == "Sent for payment"), Blue), K("Unpaid", rows.Count(r => PrStatus(r.B) == "Unpaid"), Warn),
             K("Basket Total", Fmt.Inr(rows.Sum(r => r.S.Bill?.Rec ?? 0)), Blue),
         };
-        var nh = Cols("Ticket Info", "Vendor", "Service Type / City", "Service / Conf. No.", "Service Dates", ("Vendor Payable", "right"), "Payment Mode", "Actual Payment Action", "Mgmt. Approval", "Actions");
+        var nh = Cols("", "Ticket Info", "Vendor", "Service Type / City", "Service / Details / Conf. No.", "Service Dates", ("Vendor Payable", "right"), "Payment Mode", "Actual Payment Action", "Mgmt. Approval", "Actions");
+        nh[0] = new Col { L = "", Cls = "bulk-col" };
         var (pgs, pager) = Paged(gs);
         var gridRows = pgs.Select(g =>
         {
@@ -73,39 +74,44 @@ public sealed partial class FinanceReports
                 Key = "v" + g.Vi, SeenVendor = g.Dot ? v.Id : null, SeenArea = "pr", CardHead = 4,
                 Cells =
                 [
-                    dot, Txt("left", v.Id, Link, 700), Txt("left", v.Name, Strong, 600), Txt("center", g.Bs.Select(r => r.S.Ti).Distinct().Count().ToString(), w: 600, num: true), Txt("right", Fmt.Inr(tot), Link, 800, num: true), ModeCell(g.Bs),
+                    dot, Txt("left", v.Id, Link, 700), VendorCell(v), Txt("center", g.Bs.Select(r => r.S.Ti).Distinct().Count().ToString(), w: 600, num: true), Txt("right", Fmt.Inr(tot), Link, 800, num: true), ModeCell(g.Bs),
                     // A vendor is Approved / Paid only once every ticket in its drill-down is; otherwise Pending.
                     C(AllOrPending(g.Bs.Count(r => r.B.Mgmt == "Approved"), g.Bs.Count, "Approved", "approved")),
                     C(VendorPay(g.Bs)),
                 ],
                 Detail = new Detail
                 {
-                    Cols = nh, CardHead = 2,
+                    Cols = nh, CardHead = 3,
                     Rows = g.Bs.Select(List<Cell> (r) =>
                     {
                         var (b, s) = (r.B, r.S);
                         return
                         [
-                            C(T(s.T.Id, Link, 700), Sub(s.T.Mbk)), C(T(v.Name, w: 600), T(v.Id, Link, 700, 11)), C(Pill(v.Type), Sub(v.City)),
-                            C(T(s.Name), Sub(s.Conf != "" ? s.Conf : "Pending")), Dates(s), Txt("right", Fmt.Inr(s.Bill?.Rec ?? 0), w: 700, num: true),
+                            // Create RTGS Advice ticks the entries that can go into one: RTGS mode, unpaid, no advice yet.
+                            new Cell { Cls = "bulk-col", Lines = !readOnly && !b.Paid && (b.Pm ?? "RTGS") == "RTGS" && b.RtgsNo == null ? [FinanceG.Chk(s, "prsel", s.Bill?.Rec ?? 0, "Payable " + Fmt.Inr(s.Bill?.Rec ?? 0))] : [] },
+                            TicketInfo(s.T, false), VendorCell(v, true), C(Pill(s.V.Type), Sub(v.City)),
+                            SvcCell(s), Dates(s), Txt("right", Fmt.Inr(s.Bill?.Rec ?? 0), w: 700, num: true),
                             // The mode chosen at submission, plus the RTGS advice number once one covers this entry.
                             C(Chip(b.Pm ?? "RTGS", "info"), b.RtgsNo != null ? Sub(b.RtgsNo) : null),
-                            C(Chip(PrStatus(b), PrTone(PrStatus(b)))),
+                            C(Chip(PrStatus(b), PrTone(PrStatus(b))), b.HasDetails && !b.Paid ? Sub("Details added · UTR awaited") : null),
                             C(Lv("Mgmt", b.Paid ? "A" : "Q", b.Paid ? [new TipLine(b.By ?? "Mounika", "", b: true), new TipLine(Fmt.Fdt(b.At))] : null)),
-                            C(Btn("Print", Pop("prAdvice", ("sid", s.Id))), b.Paid ? null : Btn("Update", Pop("prpay", ("sid", s.Id)), "primary")),
+                            // Two steps: Add Payment Details, then Update Payment Details with the UTR (Paid). Print buttons wait for the details; Print Cheque is hidden once paid.
+                            readOnly ? (b.Paid ? C(Btn("View Payment Details", Pop("prview", ("sid", s.Id)))) : Empty) : C(b.Paid ? Btn("View Payment Details", Pop("prview", ("sid", s.Id)))
+                                    : Btn(b.HasDetails ? "Update Payment Details" : "Add Payment Details", Pop("prpay", ("sid", s.Id)), "primary"),
+                              b.HasDetails ? Btn("Print Advice", Pop("prAdvice", ("sid", s.Id))) : Btn("Print Advice", dis: true),
+                              b.Paid ? null : Btn("Print Cheque", toast: b.HasDetails ? "Cheque printing is not available yet." : null, dis: !b.HasDetails)),
                         ];
                     }).ToList(),
                 },
             };
         }).ToList();
 
-        List<ToolBtn> tools = [new("RTGS Advice History (" + rtgsCount + ")", Pop("rtgsHist"))];
-        tools.Add(new("Create RTGS Advice", Pop("rtgsSel"), Primary: true));
         return new ReportVm
         {
             Title = "Payment Request Report", Pill = true, Kpis = kpis, Query = q,
             Desc = "The payment basket, grouped by vendor and ticket — generated once Finance confirms submission from Approved Vendor Payable, for actual payment execution. A vendor with newly added tickets is marked with a red dot and moved to the top until viewed.",
-            Qph = "Search Ticket No., Vendor, Service...", Filters = MkFilters(baseRows, defs), FCount = FCount(defs, false), Count = gs.Count + " vendors", Tools = tools,
+            Qph = "Search Ticket No., Vendor, Service...", Filters = MkFilters(baseRows, defs), FCount = FCount(defs, false), Count = gs.Count + " vendors",
+            Bulk = readOnly ? null : new BulkBar(PopUrl("rtgsSel"), PopUrl("rtgsHist"), rtgsCount, "Create RTGS Advice", "RTGS Advice History", "prsel", ExpandAll: true),
             Cols = Cols("", "", "Vendor ID", "Vendor Name", ("Tickets", "center"), ("Total Value", "right"), "Payment Mode", "Approval Status", "Payment Status"), Rows = gridRows, Pager = pager, EmptyText = "No payment requests found.", ClearAllUrl = ClearAll,
         };
     }

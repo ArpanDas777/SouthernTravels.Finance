@@ -16,7 +16,7 @@ public class ApprovedVendorPayableController(IFinanceService finance) : FinanceC
     /* ---------- popups ---------- */
 
     [HttpGet("Popup")]
-    public IActionResult Popup(string t, string? ids, int? vi)
+    public IActionResult Popup(string t, string? ids, int? vi, string? id)
     {
         var all = St.Svcs();
         switch (t)
@@ -27,6 +27,11 @@ public class ApprovedVendorPayableController(IFinanceService finance) : FinanceC
                 List<Svc> ss;
                 lock (St.Gate) ss = St.AwaitingSubmission(all).Where(s => s.Vi == v).ToList();
                 return View("Popups/VendorBills", new VendorBillsVm(St.V[v], ss));
+            }
+            case "avpdocs":
+            {
+                var s = all.FirstOrDefault(x => x.Id == id);
+                return s?.Bill == null ? NotFound() : View("Popups/Docs", s);
             }
             case "advice": return View("Popups/Advice", BuildAdvice(all, (ids ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries).ToHashSet()));
             default: return NotFound();
@@ -39,15 +44,9 @@ public class ApprovedVendorPayableController(IFinanceService finance) : FinanceC
         lock (St.Gate) { pool = St.AwaitingSubmission(all); basketCount = St.Basket.Count; }
         var sel = pool.Where(s => ids.Contains(s.Id)).ToList();
         var vs = sel.GroupBy(s => s.Vi).ToList();
-        var rows = vs.Select((g, i) => new AdviceRow(i + 1, St.V[g.Key].Name, St.V[g.Key].Id, g.Key, g.Select(s => s.Ti).Distinct().Count(), Fmt.Inr(g.Sum(s => s.Bill!.Rec)))).ToList();
-        // Other billed services of the same vendors that are not in this advice.
-        var pending = vs.Select(g =>
-        {
-            var rest = pool.Where(s => s.Vi == g.Key && !ids.Contains(s.Id)).ToList();
-            return rest.Count > 0 ? $"{St.V[g.Key].Name}: {rest.Select(s => s.Ti).Distinct().Count()} ticket(s) pending ({Fmt.Inr(rest.Sum(s => s.Bill!.Rec))})" : null;
-        }).OfType<string>().ToList();
+        var rows = vs.Select((g, i) => new AdviceRow(i + 1, St.V[g.Key].Name, St.V[g.Key].Id, g.Key, g.Select(s => s.Ti).Distinct().Count(), Fmt.Inr(g.Sum(s => s.Bill!.Rec)), St.V[g.Key].LegalName)).ToList();
         return new AdviceVm(sel.Select(s => s.Id).ToList(), "PSA-2610-" + (101 + basketCount), Fmt.Fdt(Clock.NowStamp()), rows,
-            sel.Select(s => s.Ti).Distinct().Count() + " tickets · " + vs.Count + " vendors", Fmt.Inr(sel.Sum(s => s.Bill!.Rec)), pending, sel.Count, vs.Count);
+            sel.Select(s => s.Ti).Distinct().Count() + " tickets · " + vs.Count + " vendors", Fmt.Inr(sel.Sum(s => s.Bill!.Rec)), sel.Count, vs.Count);
     }
 
     /* ---------- actions ---------- */

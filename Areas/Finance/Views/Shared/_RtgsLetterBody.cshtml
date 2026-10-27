@@ -3,10 +3,10 @@
    Internal adds a "Total of amount" row; Bank has none. *@
 @{ var rec = Model.Rec; var c = rec.Common; }
 <p class="doc-to">To,<br>The Branch Manager,<br><b>@c.SenderBank Bank</b></p>
-<p class="doc-subject">Subject: RTGS payment to @Model.Vendors beneficiary(ies) — total @Fmt.Inr(Model.Total)</p>
+<p class="doc-subject">Subject: @Model.Name payment to @Model.Vendors beneficiary(ies) — total @Fmt.Inr(Model.Total)</p>
 <p>Dear Sir / Madam,</p>
 <p class="doc-text">
-    Please debit our @c.SenderBank account against the cheque details given with each payment below and pay the beneficiaries by RTGS on the same day.
+    Please debit our @c.SenderBank account against the cheque details given with each payment below and pay the beneficiaries by @(Model.Bulk ? c.Mode : "RTGS") on the same day.
 </p>
 
 <div class="strip">Beneficiary details</div>

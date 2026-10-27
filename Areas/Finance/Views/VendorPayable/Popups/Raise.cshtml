@@ -6,67 +6,85 @@
     // The scanner is reached through a small service on this PC (see Scanner:Url in appsettings.json).
     var scanUrl = Config["Scanner:Url"] ?? "";
     ViewData["Title"] = Model.Reupload ? "Reupload Bill" : "Upload Bill";
-    ViewData["Sub"] = n == 1 ? "1 service" : n + " services selected — enter bill details for each";
-    ViewData["Width"] = 820;
+    ViewData["Sub"] = n == 1 ? Model.Services[0].V.Name + " · " + Model.Services[0].V.LegalName : n + " services selected — enter bill details for each";
+    ViewData["Width"] = 860;
     ViewData["Action"] = "RaiseBill";
 }
+<input type="hidden" name="Reupload" value="@(Model.Reupload ? 1 : 0)">
 @for (var i = 0; i < n; i++)
 {
     var s = Model.Services[i];
-    <div class="pop-head @(i > 0 ? "pop-head-sep" : "")">
-        <span>@s.T.Id · @s.V.Name</span>
-        <span class="pop-head-r">@(n > 1 ? $"Service {i + 1} of {n}" : "")</span>
-    </div>
-    <partial name="_Facts" model="@(new FactsBlock { Cols = 4, Strip = true, Items = [("Ticket No.", s.T.Id, G.Link, true), ("Vendor Name", s.V.Name, null, false), ("Service Name", s.Name, null, false), ("Vendor Payable", Fmt.Inr(s.Neg), G.Strong, true)] })" />
-    <input type="hidden" name="Items[@i].Sid" value="@s.Id">
-    @* Bill date, bill no. and the two amounts share one line. *@
-    <div class="fields fields-4">
-        <label class="fld"><span class="fld-l">Bill Date<span class="req" aria-hidden="true">*</span></span><input type="date" name="Items[@i].Date" class="fld-in" data-req data-svc="@i" aria-required="true"></label>
-        <label class="fld"><span class="fld-l">Bill No.<span class="req" aria-hidden="true">*</span></span><input type="text" name="Items[@i].No" class="fld-in" placeholder="INV-2026-0451" data-req data-svc="@i" aria-required="true"></label>
-        <label class="fld"><span class="fld-l">Amount as per Invoice (₹)<span class="req" aria-hidden="true">*</span></span><input type="number" min="1" step="1" name="Items[@i].Inv" class="fld-in" placeholder="@s.Neg" data-req data-svc="@i" aria-required="true"></label>
-        <label class="fld"><span class="fld-l">Recommended Amount (₹)<span class="req" aria-hidden="true">*</span></span><input type="number" min="1" step="1" name="Items[@i].Rec" class="fld-in" placeholder="@s.Neg" data-req data-svc="@i" aria-required="true"></label>
-    </div>
-    @* Each document is chosen from disk or scanned in; a scan is added to the field just like a chosen file. *@
-    <div class="fields">
-        <label class="fld"><span class="fld-l">Upload Bill<span class="req" aria-hidden="true">*</span></span>
-            <span class="fld-file"><input type="file" name="Items[@i].File" data-req data-file data-svc="@i" aria-required="true"><button type="button" class="btn btn-sm" data-scan data-scan-url="@scanUrl">Scan</button><span class="fld-file-ok" data-file-text></span></span>
-        </label>
-        <label class="fld"><span class="fld-l">Upload Voucher<span class="req" aria-hidden="true">*</span></span>
-            <span class="fld-file"><input type="file" name="Items[@i].Voucher" data-req data-file data-svc="@i" aria-required="true"><button type="button" class="btn btn-sm" data-scan data-scan-url="@scanUrl">Scan</button><span class="fld-file-ok" data-file-text></span></span>
-        </label>
-        <div class="fld full"><span class="fld-l">Upload Date &amp; Time</span><div class="fld-ro" data-file-stamp>-</div></div>
-    </div>
-    @* With several services, each can also be disputed on its own (the footer button disputes them all). *@
-    @if (n > 1 && !Model.Reupload)
-    {
-        <div class="svc-actions">
-            <button type="submit" name="Kind" value="D:@s.Id" class="btn btn-sm btn-soft" data-needs-svc="@i" disabled>Raise Dispute — @s.T.Id only</button>
+    var last = Model.Reupload ? s.Bill : null;      // a reupload starts from the last upload's details (the file must be chosen again)
+    var docs = FinanceOptions.DocTypes(s.V.Type);
+    <div class="svc-block @(i > 0 ? "pop-head-sep" : "")" data-svc-block="@i" data-payable="@s.Neg" data-reupload="@(Model.Reupload ? 1 : 0)">
+        @if (n > 1) { <div class="pop-head"><span>Service @(i + 1) of @n</span></div> }
+        <partial name="Popups/_BillHead" model="s" />
+        <input type="hidden" name="Items[@i].Sid" value="@s.Id">
+        @* Bill date and bill no. share one line. *@
+        <div class="fields fields-auto" style="--fmin:300px;margin-top:12px">
+            <label class="fld"><span class="fld-l">Bill Date<span class="req" aria-hidden="true">*</span></span><input type="date" name="Items[@i].Date" value="@last?.Date" class="fld-in" data-req data-svc="@i" aria-required="true"></label>
+            <label class="fld"><span class="fld-l">Bill No.<span class="req" aria-hidden="true">*</span></span><input type="text" name="Items[@i].No" value="@last?.No" class="fld-in" placeholder="INV-2026-0451" data-req data-svc="@i" aria-required="true"></label>
         </div>
-    }
+        @* The main bill and the optional additional documents side by side; each is chosen from disk (Upload) or read from the scanner (Scan). *@
+        <div class="fields fields-auto" style="--fmin:300px;margin-top:12px">
+            <div class="fld"><span class="fld-l">Upload Bill — @docs[0]<span class="req" aria-hidden="true">*</span></span>
+                <span class="scan-row" data-doc data-main data-pay="@s.Neg">
+                    <input type="file" name="Items[@i].File" hidden data-req data-file data-svc="@i" aria-required="true">
+                    <button type="button" class="btn btn-sm" data-upload-btn>Upload</button>
+                    <button type="button" class="btn btn-sm" data-scan data-scan-url="@scanUrl">Scan</button>
+                    <span class="scan-status" data-scan-status>No file chosen</span>
+                </span>
+            </div>
+            <div class="fld"><span class="fld-l">Additional Docs <span class="faint">(optional)</span>@(docs.Length > 1 ? " — " + string.Join(", ", docs.Skip(1)) : "")</span>
+                <span class="scan-row" data-doc>
+                    <input type="file" name="Items[@i].Extra" hidden data-file data-svc="@i">
+                    <button type="button" class="btn btn-sm" data-upload-btn>Upload</button>
+                    <button type="button" class="btn btn-sm" data-scan data-scan-url="@scanUrl">Scan</button>
+                    <span class="scan-status" data-scan-status>No file chosen</span>
+                </span>
+            </div>
+            <label class="fld"><span class="fld-l">Amount as per Invoice (₹)<span class="req" aria-hidden="true">*</span></span><input type="number" min="1" step="1" name="Items[@i].Inv" value="@(last != null ? last.Inv.ToString() : "")" class="fld-in" placeholder="@s.Neg" data-req data-svc="@i" data-inv aria-required="true"></label>
+            <label class="fld" data-mismatch hidden><span class="fld-l">Mismatch Reason <span class="faint">— invoice is above the vendor payable</span></span><input type="text" name="Items[@i].Mr" value="@last?.Mr" class="fld-in" placeholder="Why does the invoice differ from the vendor payable?"></label>
+        </div>
+        @* With several services, each can also be disputed on its own (the footer button disputes them all). *@
+        @if (n > 1 && !Model.Reupload)
+        {
+            <div class="svc-actions">
+                <button type="submit" name="Kind" value="D:@s.Id" class="btn btn-sm btn-soft" data-needs-dispute-svc="@i" disabled>Raise Dispute — @s.T.Id only</button>
+            </div>
+        }
+    </div>
 }
-@* Bill history belongs to Reupload only: it shows what is already on file for the vendor. *@
+@* Reupload: every earlier upload of each service, newest first. *@
 @if (Model.Reupload)
 {
-    <details class="bill-hist">
-        <summary>Bill history · @Model.History.Count bill@(Model.History.Count == 1 ? "" : "s") already added</summary>
-        <div class="bill-hist-frame">
-            <table class="bill-hist-tbl">
-                <thead><tr><th>Ticket</th><th>Service</th><th>Bill No.</th><th>Bill Date</th><th class="r">Invoice</th><th class="r">Recommended</th><th>Status</th></tr></thead>
-                <tbody>
-                    @foreach (var h in Model.History)
-                    {
-                        <tr><td>@h.T.Id</td><td>@h.Name</td><td>@h.Bill!.No</td><td>@Fmt.Fd(h.Bill.Date)</td><td class="r">@Fmt.Inr(h.Bill.Inv)</td><td class="r">@Fmt.Inr(h.Bill.Rec)</td><td>@(h.Bill.St == "D" ? "Disputed" : "Uploaded")</td></tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    </details>
+    <div class="sec">Upload history</div>
+    @foreach (var s in Model.Services)
+    {
+        var versions = new List<Bill> { s.Bill! };
+        versions.AddRange(Enumerable.Reverse(s.Bill!.Hist));
+        <div class="pop-head" style="margin-top:8px"><span>@s.T.Id · @s.Name</span><span class="pop-head-r">@versions.Count upload@(versions.Count == 1 ? "" : "s")</span></div>
+        @for (var v = 0; v < versions.Count; v++)
+        {
+            var h = versions[v];
+            <div class="hist-item">
+                <div><span class="chip chip-@(h.St == "D" ? "danger" : h.Approved ? "ok" : "off")">@(h.St == "D" ? "Disputed" : h.Approved ? "Uploaded" : "Pending")</span> @(v == 0 ? "· latest upload" : "")</div>
+                <div class="hist-grid">
+                    <div><div class="fact-l">Bill Date / No.</div>@Fmt.Fd(h.Date) · @(h.No != "" ? h.No : "-")</div>
+                    <div><div class="fact-l">Document</div><button type="button" class="fact-link" data-toast="No document is available yet.">@h.Doc</button></div>
+                    <div><div class="fact-l">Amount as per Invoice</div><span class="num">@Fmt.Inr(h.Inv)</span></div>
+                    <div><div class="fact-l">Uploaded on</div>@Fmt.Fdt(h.Upl)</div>
+                    @if (h.Mr != "") { <div style="grid-column:1/-1"><div class="fact-l">Mismatch Reason</div>@h.Mr</div> }
+                </div>
+            </div>
+        }
+    }
 }
 @section Footer {
     <button type="button" class="btn" data-close>Cancel</button>
     @if (!Model.Reupload)
     {
-        <button type="submit" name="Kind" value="D" class="btn btn-soft" data-needs-valid disabled>@(n > 1 ? "Raise Dispute (all)" : "Raise Dispute")</button>
+        <button type="submit" name="Kind" value="D" class="btn btn-soft" data-needs-dispute disabled>@(n > 1 ? "Raise Dispute (all)" : "Raise Dispute")</button>
     }
-    <button type="submit" name="Kind" value="R" class="btn btn-confirm" data-needs-valid disabled>Submit@(n > 1 ? $" ({n})" : "")</button>
+    <button type="submit" name="Kind" value="R" class="btn btn-confirm" data-needs-valid data-block-over="@(Model.Reupload ? 0 : 1)" disabled>Submit@(n > 1 ? $" ({n})" : "")</button>
 }

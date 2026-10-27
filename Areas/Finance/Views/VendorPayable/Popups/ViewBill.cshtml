@@ -3,12 +3,19 @@
     Layout = "_Modal";
     var b = Model.Bill!;
     ViewData["Title"] = "Bill Details";
-    ViewData["Sub"] = Model.T.Id + " · " + Model.V.Name;
-    ViewData["Width"] = 520;
+    ViewData["Sub"] = Model.T.Id + " · " + Model.V.Name + " · " + Model.V.LegalName;
+    ViewData["Width"] = 760;
 }
-<partial name="_Facts" model="@(new FactsBlock { Items = [("Ticket No.", Model.T.Id, G.Link, true), ("Vendor Name", Model.V.Name, null, false), ("Service Name", Model.Name, null, false), ("Vendor Payable", Fmt.Inr(Model.Neg), G.Strong, true)] })" />
+<partial name="Popups/_BillHead" model="Model" />
 <div class="sec">Bill</div>
-<partial name="_Facts" model="@(new FactsBlock { Items = [("Bill Date", Fmt.Fd(b.Date), null, false), ("Bill No.", b.No, null, false), ("Uploaded Bill", b.Doc, null, false), ("Uploaded Voucher", b.Voucher != "" ? b.Voucher : "-", null, false), ("Bill Upload Date & Time", Fmt.Fdt(b.Upl), null, false), ("Amount as per Invoice", Fmt.Inr(b.Inv), b.Inv > Model.Neg ? G.Red : null, true), ("Recommended Amount for Payment", Fmt.Inr(b.Rec), null, false)] })" />
+<partial name="_Facts" model="@(new FactsBlock { Cols = 3, Links = ["Uploaded Bill", "Additional Docs"], Items =
+    [("Bill Date", Fmt.Fd(b.Date), null, false), ("Bill No.", b.No != "" ? b.No : "-", null, false), ("Bill Status", b.St == "D" ? "Disputed" : "Uploaded", null, false),
+     ("Uploaded Bill", b.Doc, null, false), ("Additional Docs", b.Extra != "" ? b.Extra : "-", null, false), ("Bill Upload Date & Time", Fmt.Fdt(b.Upl), null, false),
+     ("Amount as per Invoice", Fmt.Inr(b.Inv), b.Inv > Model.Neg ? G.Red : null, true), ("Recommended Amount", Fmt.Inr(b.Rec), null, false), ("Approval", "L1 " + (b.L1.St == "A" ? "✓" : "pending") + " · L2 " + (b.L2.St == "A" ? "✓" : "pending"), null, false)] })" />
+@if (b.Mr != "")
+{
+    <div class="fld full"><span class="fld-l">Mismatch Reason</span><div class="fld-ro" style="height:auto;min-height:32px;padding:6px 10px">@b.Mr</div></div>
+}
 @if (b.St == "D")
 {
     <div class="note-danger">This bill is flagged as a Dispute — the invoiced amount doesn’t match the expected vendor payable. Reupload a corrected bill or raise it with Finance.</div>

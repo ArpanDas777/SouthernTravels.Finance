@@ -1,0 +1,23 @@
+@model BulkPayVm
+@{
+    Layout = "_Modal";
+    ViewData["Title"] = "Bulk Payment";
+    ViewData["Sub"] = Model.Rows.Count + " advance" + (Model.Rows.Count == 1 ? "" : "s") + " — set the TDS % for each, then the payment details they share";
+    ViewData["Width"] = 1000;
+    ViewData["Action"] = "BulkPay";
+    var total = Model.Rows.Sum(r => r.Req.Amt);
+}
+<div class="tot-strip">
+    <div><div class="l">Advances selected</div><div class="v">@Model.Rows.Count</div></div>
+    <div><div class="l">Total advance</div><div class="v">@Fmt.Inr(total)</div></div>
+    <div><div class="l">Total TDS</div><div class="v" data-tot-tds>₹0</div></div>
+    <div><div class="l">Net payable</div><div class="v" style="color:var(--ok-ink)" data-tot-net>@Fmt.Inr(total)</div></div>
+</div>
+<partial name="_TdsTable" model="@(new TdsTableVm("Advance", Model.Rows.Select(r => new TdsRow(r.Req.Sid, r.Service, r.Req.Amt)).ToList()))" />
+
+<div class="sec">Payment details (apply to every advance)</div>
+<partial name="_PayFields" model="@(new PayFieldsVm("Date of Advance", AskRnd: true))" />
+@section Footer {
+    <button type="button" class="btn" data-close>Cancel</button>
+    <button type="submit" class="btn btn-confirm" data-needs-valid disabled>Submit (@Model.Rows.Count)</button>
+}

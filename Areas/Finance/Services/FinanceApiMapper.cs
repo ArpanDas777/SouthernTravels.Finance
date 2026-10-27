@@ -21,11 +21,11 @@ public static class FinanceApiMapper
         : DateTime.TryParse(s, Fmt.Inv, DateTimeStyles.AllowWhiteSpaces, out d) ? d : null;
 
     /// <summary>"yyyy-MM-dd"; <paramref name="fallback"/> when the API sent nothing usable (the reports need a real date).</summary>
-    public static string Day(string? s, string fallback = Clock.Today) => Parse(s) is { } d ? Fmt.Ymd(d) : fallback;
+    public static string Day(string? s, string? fallback = null) => Parse(s) is { } d ? Fmt.Ymd(d) : fallback ?? Clock.Today;
 
     /// <summary>"yyyy-MM-dd HH:mm" (system stamps).</summary>
-    public static string Stamp(string? s, string fallback = Clock.Today + " 00:00") =>
-        Parse(s) is { } d ? d.ToString("yyyy-MM-dd HH:mm", Fmt.Inv) : fallback;
+    public static string Stamp(string? s, string? fallback = null) =>
+        Parse(s) is { } d ? d.ToString("yyyy-MM-dd HH:mm", Fmt.Inv) : fallback ?? Clock.Today + " 00:00";
 
     static string? OptStamp(string? s) => Parse(s) is { } d ? d.ToString("yyyy-MM-dd HH:mm", Fmt.Inv) : null;
 
@@ -35,13 +35,13 @@ public static class FinanceApiMapper
     public static FinanceStore ToStore(
         List<VendorResponse> vendors, List<TicketResponse> tickets, List<VendorServiceResponse> services, List<VendorBillResponse> bills,
         List<VendorKycResponse> kycs, List<PaymentRequestResponse> payments, List<AdvanceRequestResponse> advances,
-        List<RtgsAdviceResponse> rtgs, List<VendorNotificationResponse> flags)
+        List<RtgsAdviceResponse> advices, List<VendorNotificationResponse> flags)
     {
-        var v = vendors.Select(x => new Vendor(x.VendorId, x.VendorName, x.ServiceType, x.City, x.State)).ToList();
+        var v = vendors.Select(x => new Vendor(x.VendorId, x.VendorName, x.ServiceType, x.City, x.State) { Legal = x.LegalName ?? "" }).ToList();
         var vIndex = v.Select((x, i) => (x.Id, i)).GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First().i);
 
         var t = tickets.Select(x => new Ticket(x.TicketNo, x.MBKID, x.FileNo, x.PaxName, x.NoOfPax, x.BookingExecutive, x.Branch,
-            x.Discount, x.BaseAmount, x.GSTAmount, x.GrandTotal, x.PaidAmount, string.IsNullOrWhiteSpace(x.TicketStatus) ? "Pending" : x.TicketStatus, x.NoOfChildren)).ToList();
+            x.Discount, x.BaseAmount, x.GSTAmount, x.GrandTotal, x.PaidAmount, string.IsNullOrWhiteSpace(x.TicketStatus) ? "Pending" : x.TicketStatus, x.NoOfChildren) { BranchCode = x.BranchCode ?? "" }).ToList();
         var tIndex = t.Select((x, i) => (x.Id, i)).GroupBy(x => x.Id).ToDictionary(g => g.Key, g => g.First().i);
 
         // A service whose ticket or vendor is not in the lists cannot be shown, so it is skipped.
@@ -49,21 +49,19 @@ public static class FinanceApiMapper
         {
             var start = Day(x.StartDate);
             return new ServiceDef(x.ServiceID, tIndex[x.TicketNo], vIndex[x.VendorId], x.ServiceName, x.ConfirmationNo ?? "",
-                start, Day(x.EndDate, start), x.SellingPrice, x.ContractedPrice, x.NegotiatedPrice, Code(x.OpsStatus, "NIC", "N")[0], null, x.AdvancePaid);
+                start, Day(x.EndDate, start), x.SellingPrice, x.ContractedPrice, x.NegotiatedPrice, Code(x.OpsStatus, "NIC", "N")[0], null, x.AdvancePaid, x.ServiceType, x.HotelName);
         }).ToList();
         var sIds = s.Select(x => x.Id).ToHashSet();
 
-        var b = bills.Where(x => sIds.Contains(x.ServiceID)).GroupBy(x => x.ServiceID).ToDictionary(g => g.Key, g =>
+        static Bill MapBill(VendorBillResponse x) => new()
         {
-            var x = g.Last();
-            return new Bill
-            {
-                St = Code(x.BillStatus, "RD", "R"), Date = Day(x.BillDate), No = x.BillNo, Doc = x.DocumentName,
-                Inv = x.InvoiceAmount, Rec = x.ReceivableAmount, Upl = Stamp(x.UploadedOn),
-                L1 = new Approval { St = Code(x.L1Status, "AQX-", "-"), By = x.L1ApprovedBy, At = OptStamp(x.L1ApprovedOn) },
-                L2 = new Approval { St = Code(x.L2Status, "AQX-", "-"), By = x.L2ApprovedBy, At = OptStamp(x.L2ApprovedOn) },
-            };
-        });
+            St = Code(x.BillStatus, "RD", "R"), Date = Day(x.BillDate), No = x.BillNo, Doc = x.DocumentName, Extra = x.AdditionalDocumentName ?? "",
+            Inv = x.InvoiceAmount, Rec = x.ReceivableAmount, Mr = x.MismatchReason ?? "", Upl = Stamp(x.UploadedOn),
+            L1 = new Approval { St = Code(x.L1Status, "AQX-", "-"), By = x.L1ApprovedBy, At = OptStamp(x.L1ApprovedOn) },
+            L2 = new Approval { St = Code(x.L2Status, "AQX-", "-"), By = x.L2ApprovedBy, At = OptStamp(x.L2ApprovedOn) },
+            Hist = x.History.Select(MapBill).ToList(),
+        };
+        var b = bills.Where(x => sIds.Contains(x.ServiceID)).GroupBy(x => x.ServiceID).ToDictionary(g => g.Key, g => MapBill(g.Last()));
 
         // K[i] must be V[i]'s KYC, so vendors without a KYC record get an empty one.
         var kycByVendor = kycs.GroupBy(x => x.VendorId).ToDictionary(g => g.Key, g => g.Last());
@@ -77,28 +75,34 @@ public static class FinanceApiMapper
         {
             Sid = x.ServiceID, Pm = x.PlannedPaymentMode, RtgsNo = x.RtgsNo, Paid = x.IsPaid, Mgmt = x.MgmtApproval, By = x.PaidBy,
             At = OptStamp(x.PaidOn), Bank = x.BankName, Mode = x.PaymentMode, Utr = x.UTRNo, ChequeNo = x.ChequeNo,
-            PaymentDate = x.IsPaid ? Day(x.PaymentDate) : null, AmountPaid = x.AmountPaid, Slip = x.PaymentSlip,
+            PaymentDate = string.IsNullOrWhiteSpace(x.PaymentDate) ? null : Day(x.PaymentDate), AmountPaid = x.AmountPaid,
+            CType = x.ChequeType, Rnd = x.RandomNo, Pct = x.TdsPercent, Tds = x.TdsAmount, DetailsAt = OptStamp(x.DetailsAddedOn),
         }).ToList();
 
         var adv = advances.Where(x => sIds.Contains(x.ServiceID)).Select(x => new AdvanceRequest
         {
             Sid = x.ServiceID, Amt = x.AdvanceAmount, At = Stamp(x.RequestedOn), By = x.RequestedBy, Br = x.Branch,
             L1 = Code(x.L1Status, "AQX-", "-"), L2 = Code(x.L2Status, "AQX-", "-"),
+            Rej = string.IsNullOrWhiteSpace(x.RejectedLevel) ? null : new AdvRej(x.RejectedLevel, x.RejectReason, x.RejectedBy ?? "", Stamp(x.RejectedOn)),
             Pay = !x.IsPaid ? null : new AdvancePayment
             {
                 Pct = x.TdsPercent, Tds = x.TdsAmount, Net = x.NetAmount, Date = Stamp(x.PaymentAddedOn), PaymentDate = Day(x.PaymentDate),
-                AmountPaid = x.AmountPaid, Slip = x.PaymentSlip ?? "", CType = x.ChequeType ?? "", No = x.ReferenceNo ?? "",
-                Bank = x.BankName ?? "", Mode = x.PaymentMode ?? "",
+                AmountPaid = x.AmountPaid, CType = x.ChequeType ?? "", No = x.ReferenceNo ?? "",
+                Bank = x.BankName ?? "", Mode = x.PaymentMode ?? "", Utr = x.UTRNo ?? "", Rnd = x.RandomNo ?? "", BulkNo = x.BulkPaymentNo,
             },
         }).ToList();
 
-        var rtgsLog = rtgs.OrderBy(x => Parse(x.CreatedOn)).Select(x => new RtgsRecord
+        // RTGS and Bulk Payment advices share one list (IsBulk tells them apart) and one shape.
+        RtgsRecord ToRecord(RtgsAdviceResponse x) => new()
         {
             No = x.RtgsNo, At = Stamp(x.CreatedOn), By = x.CreatedBy, Sids = x.ServiceIDs.Where(sIds.Contains).ToList(),
             Common = new RtgsCommon { SenderBank = x.SenderBank, ChequeNo = x.ChequeNo, ChequeDate = Day(x.ChequeDate), RandomNo = x.RandomNo, Remarks = x.Remarks },
-        }).ToList();
+        };
+        var ordered = advices.OrderBy(x => Parse(x.CreatedOn)).ToList();
+        var rtgsLog = ordered.Where(x => !x.IsBulk).Select(ToRecord).ToList();
+        var bulkLog = ordered.Where(x => x.IsBulk).Select(ToRecord).ToList();
 
-        return new FinanceStore(v, t, s, k, b, basket, adv, rtgsLog,
+        return new FinanceStore(v, t, s, k, b, basket, adv, rtgsLog, bulkLog,
             flags.Where(f => f.HasNewTickets).Select(f => f.VendorId), flags.Where(f => f.HasNewBills).Select(f => f.VendorId));
     }
 }

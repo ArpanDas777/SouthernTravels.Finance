@@ -3,7 +3,7 @@
     Layout = "_Modal";
     var rec = Model.Rec;
     var no = Uri.EscapeDataString(rec.No);
-    ViewData["Title"] = Model.Bank ? "RTGS Bank letter" : "RTGS Internal letter";
+    ViewData["Title"] = Model.Name + (Model.Bank ? " Bank letter" : " Internal letter");
     ViewData["Sub"] = rec.No + " · " + Model.Rows.Count + " ticket(s) · " + Fmt.Inr(Model.Total);
     ViewData["Width"] = 900;
 }
@@ -14,8 +14,8 @@
 @section Footer {
     @if (Model.FromHistory)
     {
-        <button type="button" class="btn" data-pop="/Finance/PaymentRequest/Popup?t=rtgsHist">Back to History</button>
+        <button type="button" class="btn" data-pop="@Model.HistUrl">Back to History</button>
     }
     <button type="button" class="btn" data-close>Close</button>
-    <a class="btn btn-primary" href="/Finance/PaymentRequest/RtgsPdf?no=@no&kind=@Model.Kind" target="_blank" rel="noopener">Download PDF</a>
+    <a class="btn btn-primary" href="@Model.PdfUrl@no&kind=@Model.Kind" target="_blank" rel="noopener">Download PDF</a>
 }

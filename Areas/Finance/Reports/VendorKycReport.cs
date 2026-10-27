@@ -27,7 +27,7 @@ public sealed partial class FinanceReports
             new("act", "Active Status", r => r.K.Active ? "Active" : "Inactive", ["Active", "Inactive"]),
         };
         var baseRows = rows;
-        rows = ApplyF(rows, defs).Where(r => SearchOk(r.V.Id, r.V.Name, r.V.City)).ToList();
+        rows = ApplyF(rows, defs).Where(r => SearchOk(r.V.Id, r.V.Name, r.V.LegalName, r.V.City)).ToList();
         var (pageRows, pager) = Paged(rows);
         var kpis = new List<Kpi>
         {
@@ -55,7 +55,7 @@ public sealed partial class FinanceReports
                 Key = v.Id, Detail = detail,
                 Cells =
                 [
-                    Txt("left", v.Id, Link, 700), Txt("left", v.Name, Strong, 600), C(Pill(v.Type)), Txt("left", v.City, Mut), Txt("left", v.State, Mut),
+                    Txt("left", v.Id, Link, 700), VendorCell(v), C(Pill(v.Type)), Txt("left", v.City, Mut), Txt("left", v.State, Mut),
                     C(Chip(k.Active ? "Active" : "Inactive", k.Active ? "ok" : "off")), C(Chip(r.Es, r.Es == "Empanelled" ? "ok" : r.Es == "Expired" ? "danger" : "warn")),
                     Txt("center", r.P + "%", r.P == 100 ? Green : Warn, 700, num: true), Txt("center", r.N + " / 5", num: true), Txt("left", Fmt.Fd(k.Expiry), num: true),
                 ],

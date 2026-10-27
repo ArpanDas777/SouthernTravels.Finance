@@ -1,8 +1,8 @@
 @model RtgsLetterVm
 @{
     Layout = "_AdviceLayout";
-    ViewData["FileName"] = "RTGS Advice " + Model.Rec.No + (Model.Bank ? " Bank" : " Internal");
-    ViewData["ToolbarTitle"] = "RTGS " + (Model.Bank ? "Bank" : "Internal") + " letter · " + Model.Rec.No;
+    ViewData["FileName"] = Model.Name + " Advice " + Model.Rec.No + (Model.Bank ? " Bank" : " Internal");
+    ViewData["ToolbarTitle"] = Model.Name + " " + (Model.Bank ? "Bank" : "Internal") + " letter · " + Model.Rec.No;
     ViewData["ToolbarHint"] = Model.Rows.Count + " ticket(s) · " + Fmt.Inr(Model.Total);
     ViewData["DocHead"] = Model.Head;
     ViewData["Signs"] = new[] { "Prepared by", "Finance Head", "Authorised Signatory" };

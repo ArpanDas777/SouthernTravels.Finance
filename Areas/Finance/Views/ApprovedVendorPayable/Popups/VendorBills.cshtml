@@ -2,11 +2,11 @@
 @{
     Layout = "_Modal";
     ViewData["Title"] = "Vendor Bills";
-    ViewData["Sub"] = Model.Vendor.Id + " · " + Model.Vendor.Name;
+    ViewData["Sub"] = Model.Vendor.Id + " · " + Model.Vendor.Name + " · " + Model.Vendor.LegalName;
     ViewData["Width"] = 720;
 }
 <div class="tbl-scroll">
-<table class="pop-table">
+<table class="pop-table stack-tbl">
     <thead>
         <tr>
             <th>Ticket</th><th>Service</th><th>Bill No.</th><th>Bill Date</th><th>Document</th>
@@ -18,7 +18,7 @@
         {
             <tr>
                 <td><div class="b link-ink">@s.T.Id</div><div class="pop-sub">@s.T.Mbk</div></td>
-                <td>@s.Name</td>
+                <td>@(s.IsAcc ? s.Hotel + " · " + s.Meal + " · " + s.RoomCat + " · " + s.Nights + "N" : s.Name)</td>
                 <td>@s.Bill!.No</td>
                 <td>@Fmt.Fd(s.Bill.Date)</td>
                 <td class="faint">@s.Bill.Doc</td>

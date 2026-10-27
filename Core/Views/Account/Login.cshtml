@@ -1,4 +1,5 @@
 @model SouthernTravels.Core.Models.Auth.LoginVm
+@inject IWebHostEnvironment Env
 @{
     Layout = null;
     var hasEmail = !string.IsNullOrEmpty(Model.Email);
@@ -43,6 +44,29 @@
                 <button type="submit" id="verify" class="login-btn login-btn-primary">Verify &amp; Login</button>
             </div>
         </form>
+
+        @if (Env.IsDevelopment())
+        {
+            @* Bypass login (Development only): shows a username / password form instead of the OTP one. *@
+            <div class="login-row" style="margin-top:16px">
+                <button type="button" id="bypass-toggle" class="login-btn login-btn-secondary" style="width:100%">By Pass Login</button>
+            </div>
+            <form id="bypass-form" method="post" action="/Account/BypassLogin" hidden>
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="returnUrl" value="@Model.ReturnUrl">
+                <label class="login-label" for="bp-user">Username</label>
+                <input type="text" id="bp-user" name="username" class="login-input" value="admin" autocomplete="off">
+                <label class="login-label" for="bp-pass">Password</label>
+                <input type="password" id="bp-pass" name="password" class="login-input" value="admin" autocomplete="off">
+                <button type="submit" class="login-btn login-btn-primary">Login</button>
+            </form>
+            <script>
+                document.getElementById('bypass-toggle').addEventListener('click', function () {
+                    var f = document.getElementById('bypass-form');
+                    f.hidden = !f.hidden;
+                });
+            </script>
+        }
     </main>
     <script src="~/js/login.js" asp-append-version="true"></script>
 </body>

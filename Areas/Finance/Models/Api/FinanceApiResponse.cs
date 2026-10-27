@@ -22,6 +22,8 @@ public class FinanceApiResponse : ApiResponseViewModel
     public int AffectedCount { get; set; }
     /// <summary>Number of the RTGS advice created by CreateRtgsAdvice.</summary>
     public string? RtgsNo { get; set; }
+    /// <summary>Number of the Bulk Payment advice created by CreateBulkPaymentAdvice.</summary>
+    public string? BulkNo { get; set; }
 }
 
 public class VendorResponse
@@ -32,6 +34,8 @@ public class VendorResponse
     public string ServiceType { get; set; } = "";
     public string City { get; set; } = "";
     public string State { get; set; } = "";
+    /// <summary>Registered legal name (shown under the vendor name).</summary>
+    public string? LegalName { get; set; }
 }
 
 public class TicketResponse
@@ -44,6 +48,8 @@ public class TicketResponse
     public int NoOfChildren { get; set; }
     public string BookingExecutive { get; set; } = "";
     public string Branch { get; set; } = "";
+    /// <summary>Branch code shown under the executive name (e.g. VIZ001).</summary>
+    public string? BranchCode { get; set; }
     public int Discount { get; set; }
     public int BaseAmount { get; set; }
     public int GSTAmount { get; set; }
@@ -69,6 +75,10 @@ public class VendorServiceResponse
     public string OpsStatus { get; set; } = "N";
     /// <summary>Advance already paid outside the Advance Report.</summary>
     public int AdvancePaid { get; set; }
+    /// <summary>Service type of this service when it differs from the vendor type (one vendor can supply several types).</summary>
+    public string? ServiceType { get; set; }
+    /// <summary>Hotel name of an accommodation service, when it differs from the vendor name.</summary>
+    public string? HotelName { get; set; }
 }
 
 public class VendorBillResponse
@@ -89,6 +99,10 @@ public class VendorBillResponse
     public string L2Status { get; set; } = "-";
     public string? L2ApprovedBy { get; set; }
     public string? L2ApprovedOn { get; set; }
+    public string? AdditionalDocumentName { get; set; }
+    public string? MismatchReason { get; set; }
+    /// <summary>Earlier uploads of this bill, oldest first.</summary>
+    public List<VendorBillResponse> History { get; set; } = [];
 }
 
 public class VendorKycResponse
@@ -134,7 +148,13 @@ public class PaymentRequestResponse
     public string? ChequeNo { get; set; }
     public string? PaymentDate { get; set; }
     public int AmountPaid { get; set; }
-    public string? PaymentSlip { get; set; }
+    /// <summary>Physical Cheque or E-Cheque; set with the payment details (step 1).</summary>
+    public string? ChequeType { get; set; }
+    public string? RandomNo { get; set; }
+    public decimal TdsPercent { get; set; }
+    public int TdsAmount { get; set; }
+    /// <summary>When the payment details were added; empty until step 1.</summary>
+    public string? DetailsAddedOn { get; set; }
 }
 
 public class AdvanceRequestResponse
@@ -146,6 +166,11 @@ public class AdvanceRequestResponse
     public string Branch { get; set; } = "";
     public string L1Status { get; set; } = "-";
     public string L2Status { get; set; } = "-";
+    /// <summary>When rejected: the level (L1 or L2), reason, who and when.</summary>
+    public string? RejectedLevel { get; set; }
+    public string? RejectReason { get; set; }
+    public string? RejectedBy { get; set; }
+    public string? RejectedOn { get; set; }
     /// <summary>True once the advance payment has been recorded; the fields below are then filled.</summary>
     public bool IsPaid { get; set; }
     public decimal TdsPercent { get; set; }
@@ -154,17 +179,23 @@ public class AdvanceRequestResponse
     public string? PaymentAddedOn { get; set; }
     public string? PaymentDate { get; set; }
     public int AmountPaid { get; set; }
-    public string? PaymentSlip { get; set; }
     /// <summary>Online or Physical Cheque.</summary>
     public string? ChequeType { get; set; }
     public string? ReferenceNo { get; set; }
     public string? BankName { get; set; }
     public string? PaymentMode { get; set; }
+    /// <summary>UTR / transaction no.; the advance counts as paid only once this is set.</summary>
+    public string? UTRNo { get; set; }
+    public string? RandomNo { get; set; }
+    public string? BulkPaymentNo { get; set; }
 }
 
 public class RtgsAdviceResponse
 {
+    /// <summary>RTGS advice number, or the Bulk Payment advice number when <see cref="IsBulk"/>.</summary>
     public string RtgsNo { get; set; } = "";
+    /// <summary>True for a Bulk Payment advice (Advance Report); false for an RTGS advice (Payment Request).</summary>
+    public bool IsBulk { get; set; }
     public string? CreatedOn { get; set; }
     public string CreatedBy { get; set; } = "";
     public string SenderBank { get; set; } = "";

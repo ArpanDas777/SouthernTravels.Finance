@@ -1,0 +1,46 @@
+@model BulkHistVm
+@{
+    Layout = "_Modal";
+    ViewData["Title"] = "Bulk Payment History";
+    ViewData["Sub"] = Model.Rows.Count + " advice(s) created";
+    ViewData["Width"] = 1000;
+}
+@if (Model.Rows.Count == 0)
+{
+    <div class="empty">No Bulk Payment advice created yet.</div>
+}
+else
+{
+    <div class="tbl-scroll">
+        <table class="pop-table hist-table stack-tbl">
+            <thead>
+                <tr><th>Advice No.</th><th>Date &amp; time</th><th>Created by</th><th>Advances</th><th class="al-right">Net total</th><th>UTR</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var h in Model.Rows)
+                {
+                    var no = Uri.EscapeDataString(h.Rec.No);
+                    <tr>
+                        <td class="b link-ink">@h.Rec.No</td>
+                        <td>@Fmt.Fdt(h.Rec.At)</td>
+                        <td>@h.Rec.By</td>
+                        <td>@h.Items.Count advance(s)</td>
+                        <td class="al-right b">@Fmt.Inr(h.Total)</td>
+                        <td class="nw">@(h.Pending == 0 ? "All paid" : $"{h.Pending} of {h.Items.Count} awaited")</td>
+                        <td>
+                            <div class="hist-btns">
+                                <button type="button" class="btn btn-xs btn-primary" data-pop="/Finance/Advance/Popup?t=bulkUtr&no=@no" disabled="@(h.Pending == 0)">Update UTR / Transaction</button>
+                                <button type="button" class="btn btn-xs" data-pop="/Finance/Advance/Popup?t=bulkView&no=@no&kind=internal">View Internal Copy</button>
+                                <button type="button" class="btn btn-xs" data-pop="/Finance/Advance/Popup?t=bulkView&no=@no&kind=bank">View Bank Copy</button>
+                                <a class="btn btn-xs" href="/Finance/Advance/BulkPdf?no=@no&kind=both" target="_blank" rel="noopener">Both (PDF)</a>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+@section Footer {
+    <button type="button" class="btn" data-close>Close</button>
+}

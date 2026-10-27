@@ -24,18 +24,30 @@ public abstract class AppController : Controller
 
     public override void OnActionExecuting(ActionExecutingContext context)
     {
-        var (kind, from, to) = DemoSession.ReadPeriod(Request);
-        Period = DemoSession.Range(kind, from, to);
+        var (kind, from, to) = PeriodFilter.ReadPeriod(Request);
+        Period = PeriodFilter.Range(kind, from, to);
         // The signed-in user comes from the session set at login (SessionMiddleware sends anyone without one to the login page).
         var s = HttpContext.Session;
         var user = s.GetString(SessionKeys.UserId) ?? "";
         var branch = s.GetString(SessionKeys.HandlingBranch);
         var isAdmin = string.Equals(s.GetString(SessionKeys.IsAdmin), "true", StringComparison.OrdinalIgnoreCase);
+        var role = s.GetString(SessionKeys.Role) ?? "";
+        // The Switch user control (session Mode) overrides the mode the login account starts in.
+        var approver = s.GetString(SessionKeys.Mode) is { Length: > 0 } mode ? mode == "approver" : role.StartsWith("approver");
+        var loginName = s.GetString(SessionKeys.UserName) is { Length: > 0 } ln ? ln : user;
+        var (shownName, shownRole) = approver ? ("Vijay Gupta", "Approver (L1 / L2 / L3)") : user switch
+        {
+            "admin" => ("Administrator", "Administrator"), "mounika" => ("Mounika", "Finance Executive"), "vijay" => ("Vijay Gupta", "Finance Head"),
+            _ => (loginName, (isAdmin ? "Administrator" : "User") + (string.IsNullOrEmpty(branch) ? "" : " · " + branch)),
+        };
+        // The approver (L2) works from Vendor Payable, Advance and Vendor KYC; their menu entries read "(Approval)".
+        var nav = approver
+            ? Area.Nav.Where(n => n.Controller is not ("ApprovedVendorPayable" or "PaymentRequest")).Select(n => n with { Label = n.Label + " (Approval)" }).ToList()
+            : Area.Nav;
         Ctx = new LayoutCtx
         {
-            User = user, UserName = s.GetString(SessionKeys.UserName) is { Length: > 0 } n ? n : user,
-            UserRole = (isAdmin ? "Administrator" : "User") + (string.IsNullOrEmpty(branch) ? "" : " · " + branch),
-            AreaName = Area.Name, AreaShort = Area.Short, Nav = Area.Nav, SeenUrl = Area.SeenUrl,
+            User = user, UserName = shownName, UserRole = shownRole,
+            AreaName = Area.Name, AreaShort = Area.Short, Nav = nav, SeenUrl = Area.SeenUrl, Approver = approver, ReadOnly = role == "approver-ro",
             PeriodKind = kind, PeriodFrom = from, PeriodTo = to,
             PeriodText = Period is { } r ? (kind == "Custom" && from == "" ? "…" : Fmt.Fd(r.From)) + " → " + (kind == "Custom" && to == "" ? "…" : Fmt.Fd(r.To)) : null,
             Toast = TempData["toast"] as string, AutoPopup = TempData["popup"] as string,
