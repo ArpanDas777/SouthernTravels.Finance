@@ -1,9 +1,9 @@
 @model BulkUtrVm
 @{
     Layout = "_Modal";
-    ViewData["Title"] = "Update UTR / Transaction";
+    ViewData["Title"] = "Update Details · " + Model.Rec.No;
     ViewData["Sub"] = Model.Rec.No + " · " + Model.Items.Count + " advance(s) — enter the UTR of each; the rest can follow later";
-    ViewData["Width"] = 900;
+    ViewData["Width"] = 760;
     ViewData["Action"] = "BulkUtr";
     var rows = Model.Items.Select(i => new UtrRow(i.Req.Sid, i.Service, i.Req.Pay?.Net ?? i.Req.Amt, i.Req.Paid, i.Req.Pay?.Utr)).ToList();
 }

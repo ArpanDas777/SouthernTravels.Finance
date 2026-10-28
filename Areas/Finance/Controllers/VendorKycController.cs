@@ -34,7 +34,7 @@ public class VendorKycController(IFinanceService finance) : FinanceControllerBas
     [HttpPost("Approve")]
     public async Task<IActionResult> Approve(int vi, string key, string? returnUrl)
     {
-        if (!Ctx.Approver || Ctx.ReadOnly) return Back(returnUrl, "You do not have permission to approve.");
+        if (ApproverOnly(returnUrl) is { } denied) return denied;
         var res = await Finance.SetKycDocAsync(vi, key, "A", null, Ctx.UserName);
         return Back(returnUrl, res.Success ? "Document approved." : SaveFailed(res.Message, "Document not saved."));
     }
@@ -43,9 +43,10 @@ public class VendorKycController(IFinanceService finance) : FinanceControllerBas
     [HttpPost("RejectDoc")]
     public async Task<IActionResult> RejectDoc(int vi, string key, string? reason, string? returnUrl)
     {
-        if (!Ctx.Approver || Ctx.ReadOnly) return Back(returnUrl, "You do not have permission to reject.");
+        if (ApproverOnly(returnUrl) is { } denied) return denied;
         if (string.IsNullOrWhiteSpace(reason)) return Back(returnUrl, "Not saved — a reason is required.");
         var res = await Finance.SetKycDocAsync(vi, key, "X", reason.Trim(), Ctx.UserName);
-        return Back(returnUrl, res.Success ? "Document rejected." : SaveFailed(res.Message, "Document not saved."));
+        var v = St.V.ElementAtOrDefault(vi); var doc = KycDocs.All.FirstOrDefault(d => d.Key == key).Name;
+        return Back(returnUrl, res.Success ? $"{doc} rejected — {v?.Id} · {v?.Name}." : SaveFailed(res.Message, "Document not saved."));
     }
 }

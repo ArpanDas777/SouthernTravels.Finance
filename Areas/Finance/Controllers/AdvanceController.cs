@@ -91,7 +91,7 @@ public class AdvanceController(IFinanceService finance) : FinanceControllerBase(
     }
 
     /// <summary>One letter line per advance: the net payable (advance less TDS).</summary>
-    List<RtgsLetterRow> BulkRows(RtgsRecord rec, List<Svc> all) => LetterRowsOf(rec, BulkItems(rec, all).Select(x => (x.Service, x.Req.Pay?.Net ?? x.Req.Amt)));
+    List<RtgsLetterRow> BulkRows(RtgsRecord rec, List<Svc> all) => LetterRowsOf(rec, BulkItems(rec, all).Select(x => (x.Service, x.Req.Pay?.Net ?? x.Req.Amt)), "Advance payment");
 
     /// <summary>Printable Bulk Payment letter (A4) — Internal, Bank, or both together. Opens in a new tab; Download PDF is the print dialog's Save as PDF.</summary>
     [HttpGet("BulkPdf")]
@@ -184,7 +184,7 @@ public class AdvanceController(IFinanceService finance) : FinanceControllerBase(
         if (pcts.Count == 0) return Back(returnUrl, "Those advances already have payment details.");
         var res = await Finance.CreateBulkPaymentAsync(pcts,
             new AdvancePayment { CType = d.Value.CType, Mode = d.Value.Mode, Bank = d.Value.Bank, No = d.Value.No, PaymentDate = d.Value.Date, Rnd = rnd.Trim() },
-            new RtgsCommon { SenderBank = d.Value.Bank, ChequeNo = d.Value.No, ChequeDate = d.Value.Date, RandomNo = rnd.Trim(), Mode = d.Value.Mode, Remarks = "Advance payment" }, Ctx.UserName);
+            new RtgsCommon { SenderBank = d.Value.Bank, ChequeNo = d.Value.No, ChequeDate = d.Value.Date, RandomNo = rnd.Trim(), Mode = d.Value.Mode }, Ctx.UserName);
         if (!res.Success || string.IsNullOrEmpty(res.BulkNo)) return Back(returnUrl, SaveFailed(res.Message, "Bulk payment not saved."));
         TempData["popup"] = "/Finance/Advance/Popup?t=bulkOut&no=" + Uri.EscapeDataString(res.BulkNo);
         return Back(returnUrl, "Bulk Payment advice " + res.BulkNo + " created.");
@@ -198,7 +198,7 @@ public class AdvanceController(IFinanceService finance) : FinanceControllerBase(
         var given = (utr ?? []).Where(x => !string.IsNullOrWhiteSpace(x.Value)).ToDictionary(x => x.Key, x => x.Value.Trim());
         if (rec == null || given.Count == 0) return Back(returnUrl, "UTR not saved — enter at least one UTR.");
         var res = await Finance.SaveBulkUtrsAsync(no, given);
-        return Back(returnUrl, res.Success ? res.AffectedCount + " advance(s) marked as paid." : SaveFailed(res.Message, "UTR not saved."));
+        return Back(returnUrl, res.Success ? "UTR updated for " + res.AffectedCount + " ticket(s) — marked as paid." : SaveFailed(res.Message, "UTR not saved."));
     }
 
     /// <summary>The approver (L2) approves or rejects an advance request (no reason is asked for).</summary>
@@ -210,7 +210,7 @@ public class AdvanceController(IFinanceService finance) : FinanceControllerBase(
 
     async Task<IActionResult> Decide(string sid, bool approve, string? returnUrl, string? reason = null)
     {
-        if (!Ctx.Approver || Ctx.ReadOnly) return Back(returnUrl, "You do not have permission to approve.");
+        if (ApproverOnly(returnUrl) is { } denied) return denied;
         if (!approve && string.IsNullOrEmpty(reason)) return Back(returnUrl, "Not rejected — a reason is required.");
         var res = await Finance.DecideAdvanceAsync(sid, approve, Ctx.UserName, reason);
         var s = St.Svcs().FirstOrDefault(x => x.Id == sid);

@@ -21,11 +21,8 @@ public class FinanceDemoService(FinanceStore store) : IFinanceService
         return Task.FromResult(Ok(bills.Count));
     }
 
-    public Task<FinanceApiResponse> ApproveBillAsync(string sid, string by) =>
-        Task.FromResult(store.ApproveBill(sid, by) ? Ok() : new FinanceApiResponse { Success = false, Message = "That bill cannot be approved." });
-
-    public Task<FinanceApiResponse> RejectBillAsync(string sid, string kind, string reason, string by) =>
-        Task.FromResult(store.RejectBill(sid, kind, reason, by) ? Ok() : new FinanceApiResponse { Success = false, Message = "That bill cannot be rejected." });
+    public Task<FinanceApiResponse> DecideBillAsync(string sid, bool approve, string by, string? kind = null, string? reason = null) =>
+        Task.FromResult(store.DecideBill(sid, approve, by, kind, reason) ? Ok() : new FinanceApiResponse { Success = false, Message = "That bill cannot be decided." });
 
     public Task<FinanceApiResponse> DecideAdvanceAsync(string sid, bool approve, string by, string? reason = null) =>
         Task.FromResult(store.DecideAdvance(sid, approve, by, reason) ? Ok() : new FinanceApiResponse { Success = false, Message = "That advance cannot be decided." });

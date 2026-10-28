@@ -334,24 +334,13 @@ public sealed class FinanceStore
         }
     }
 
-    /// <summary>The approver (L2) approves a bill that L1 has approved.</summary>
-    public bool ApproveBill(string sid, string by)
+    /// <summary>The approver (L2) approves a bill that L1 has approved, or rejects it / marks it as disputed (<paramref name="kind"/>) with a reason.</summary>
+    public bool DecideBill(string sid, bool approve, string by, string? kind = null, string? reason = null)
     {
         lock (Gate)
         {
-            if (!Bills.TryGetValue(sid, out var b) || b.L1.St != "A" || b.L2.St == "A") return false;
-            b.L2 = new Approval { St = "A", By = by, At = NowStamp() };
-            return true;
-        }
-    }
-
-    /// <summary>The approver (L2) rejects a bill, or marks it as disputed, with a reason.</summary>
-    public bool RejectBill(string sid, string kind, string reason, string by)
-    {
-        lock (Gate)
-        {
-            if (!Bills.TryGetValue(sid, out var b) || b.L1.St != "A") return false;
-            b.L2 = new Approval { St = "X", By = by, At = NowStamp(), Kind = kind, Reason = reason };
+            if (!Bills.TryGetValue(sid, out var b) || b.L1.St != "A" || (approve && b.L2.St == "A")) return false;
+            b.L2 = new Approval { St = approve ? "A" : "X", By = by, At = NowStamp(), Kind = approve ? null : kind, Reason = approve ? null : reason };
             return true;
         }
     }

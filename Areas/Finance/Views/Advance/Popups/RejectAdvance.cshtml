@@ -4,13 +4,10 @@
     var s = Model.Service;
     ViewData["Title"] = "Reject Advance Request";
     ViewData["Sub"] = s.T.Id + " · " + s.V.Name + " · " + s.V.LegalName + " · " + Fmt.Inr(Model.Req.Amt);
-    ViewData["Width"] = 560;
+    ViewData["Width"] = 480;
     ViewData["Action"] = "Reject";
 }
-<input type="hidden" name="sid" value="@Model.Req.Sid">
-<label class="fld"><span class="fld-l">Reason<span class="req" aria-hidden="true">*</span></span>
-    <textarea name="reason" rows="3" class="fld-in" style="height:auto;padding:8px 10px;font-family:var(--font-ui)" maxlength="500" data-req aria-required="true" placeholder="Enter the reason for rejecting this advance request"></textarea>
-</label>
+<partial name="_ReasonField" model="@(new ReasonFieldVm("Enter the reason for rejecting this advance request", [("sid", Model.Req.Sid)]))" />
 @section Footer {
     <button type="button" class="btn" data-close>Cancel</button>
     <button type="submit" class="btn btn-primary" data-needs-valid disabled>Reject</button>

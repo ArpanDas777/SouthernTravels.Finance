@@ -2,22 +2,26 @@
 @{
     Layout = "_Modal";
     var b = Model.Bill!;
-    ViewData["Title"] = "Documents";
+    ViewData["Title"] = "Bill Documents";
     ViewData["Sub"] = Model.T.Id + " · " + Model.V.Name + " · " + Model.V.LegalName;
     ViewData["Width"] = 560;
     var docs = FinanceOptions.DocTypes(Model.V.Type);
 }
-@* Placeholder list: the documents expected for this service type, named after the bill. No files are stored yet, so the names show a toast. *@
+@* Placeholder list: the documents expected for this service type, named after the bill. No files are stored yet, so Get and View only show a toast. *@
 <div class="tbl-scroll">
     <table class="pop-table stack-tbl">
-        <thead><tr><th>Document</th><th>File</th></tr></thead>
+        <thead><tr><th>Document</th><th>File</th><th></th></tr></thead>
         <tbody>
             @for (var i = 0; i < docs.Length; i++)
             {
                 var file = i == 0 ? b.Doc : docs[i].Replace(" ", "_").Replace("/", "-").Replace("&", "and") + "_" + b.No + ".pdf";
                 <tr>
-                    <td>@docs[i]@(i == 0 ? " (main bill)" : "")</td>
-                    <td><button type="button" class="fact-link" data-toast="No document is available yet.">@file</button></td>
+                    <td>@(i == 0 ? "Bill" : "Additional") · @docs[i]</td>
+                    <td class="num">@file</td>
+                    <td class="al-right nw">
+                        <button type="button" class="btn btn-xs" data-toast="@file downloaded.">Get</button>
+                        <button type="button" class="btn btn-xs" data-toast="Opening @file…">View</button>
+                    </td>
                 </tr>
             }
         </tbody>

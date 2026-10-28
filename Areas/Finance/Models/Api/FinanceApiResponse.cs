@@ -202,7 +202,6 @@ public class RtgsAdviceResponse
     public string ChequeNo { get; set; } = "";
     public string? ChequeDate { get; set; }
     public string RandomNo { get; set; } = "";
-    public string? Remarks { get; set; }
     public List<string> ServiceIDs { get; set; } = [];
 }
 

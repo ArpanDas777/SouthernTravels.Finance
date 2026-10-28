@@ -1,9 +1,9 @@
 @model RtgsUtrVm
 @{
     Layout = "_Modal";
-    ViewData["Title"] = "Update Details";
+    ViewData["Title"] = "Update Details · " + Model.Rec.No;
     ViewData["Sub"] = Model.Rec.No + " · " + Model.Items.Count + " ticket(s) — enter the UTR of each; the rest can follow later";
-    ViewData["Width"] = 900;
+    ViewData["Width"] = 760;
     ViewData["Action"] = "RtgsUtr";
     var rows = Model.Items.Select(i => new UtrRow(i.S.Id, i.S, (i.S.Bill?.Rec ?? 0) - i.B.Tds, i.B.Paid, i.B.Utr)).ToList();
 }

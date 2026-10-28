@@ -345,6 +345,79 @@
         });
     }
 
+    /* ---------- module launcher (nine-dot button after the bell) ---------- */
+    // Placeholder: choosing a module only selects it, and a quick action only shows a toast (no routes yet).
+    const launcher = $('[data-launcher]');
+    if (launcher) {
+        const btn = $('[data-launch-btn]', launcher);
+        const MODS = [
+            { k: 'contracts', l: 'Contracts', t: 'blue', i: 'M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8zM14 3v5h5M9 13h6M9 17h4', a: [['New contract', 'New'], ['Go to dashboard', 'Dashboard'], ['Expiring soon', 'Expiring']] },
+            { k: 'insights', l: 'Insights', t: 'purple', i: 'M4 20V10M10 20V4M16 20v-7M22 20H2', a: [['Go to dashboard', 'Dashboard'], ['Create report', 'Report'], ['Saved reports', 'Saved']] },
+            { k: 'products', l: 'Products', t: 'orange', i: 'M21 8 12 3 3 8v8l9 5 9-5zM3 8l9 5 9-5M12 13v8', a: [['Add product', 'Add'], ['Go to dashboard', 'Dashboard'], ['Price list', 'Prices']] },
+            { k: 'ems', l: 'EMS', t: 'green', i: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', a: [['Quick query', 'Query'], ['Go to dashboard', 'Dashboard'], ['Go to follow-ups', 'Follow-ups']] },
+            { k: 'quotation', l: 'Quotation (MBK)', t: 'amber', i: 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9', a: [['New quotation', 'New quote'], ['Go to dashboard', 'Dashboard'], ['Pending quotations', 'Pending']] },
+            { k: 'sales', l: 'Sales', t: 'slate', i: 'M3 17l6-6 4 4 8-8M15 7h6v6', a: [['New sale', 'New sale'], ['Go to dashboard', 'Dashboard'], ['Open pipeline', 'Pipeline']] },
+            { k: 'operations', l: 'Operations', t: 'blue', i: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2', a: [['Go to dashboard', 'Dashboard'], ["Today's schedule", 'Schedule'], ['Log an issue', 'Issue']] },
+            { k: 'finance', l: 'Finance', t: 'green', i: 'M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', a: [['Go to dashboard', 'Dashboard'], ['New invoice', 'Invoice'], ['Outstanding payments', 'Payments']] },
+            { k: 'marketing', l: 'Marketing', t: 'orange', i: 'M3 11v2a2 2 0 0 0 2 2h2l5 4V5L7 9H5a2 2 0 0 0-2 2zM16 8a5 5 0 0 1 0 8', a: [['Go to dashboard', 'Dashboard'], ['New campaign', 'Campaign'], ['Campaign calendar', 'Calendar']] },
+            { k: 'admin', l: 'Admin', t: 'slate', i: 'M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z', a: [['Manage users', 'Users'], ['System settings', 'Settings'], ['Audit log', 'Audit']] },
+            { k: 'approvals', l: 'Approvals', t: 'green', i: 'M20 6 9 17l-5-5', a: [['Pending approvals', 'Pending'], ['Go to dashboard', 'Dashboard'], ['My requests', 'Requests']] },
+            { k: 'access', l: 'Access mgmt.', t: 'purple', i: 'M15 7a4 4 0 1 1-3.5 6L3 21v-3h3v-3h3l2.5-2.5A4 4 0 0 1 15 7z', a: [['Manage roles', 'Roles'], ['Grant access', 'Grant'], ['Access log', 'Log']] },
+        ];
+        const svg = (d, s) => {
+            const ns = 'http://www.w3.org/2000/svg', e = document.createElementNS(ns, 'svg'), p = document.createElementNS(ns, 'path');
+            e.setAttribute('width', s); e.setAttribute('height', s); e.setAttribute('viewBox', '0 0 24 24'); e.setAttribute('fill', 'none'); e.setAttribute('stroke', 'currentColor');
+            e.setAttribute('stroke-width', '2'); e.setAttribute('stroke-linecap', 'round'); e.setAttribute('stroke-linejoin', 'round'); e.setAttribute('aria-hidden', 'true');
+            p.setAttribute('d', d); e.append(p);
+            return e;
+        };
+        let sel = 'finance', panel = null, backdrop = null;
+        const close = () => {
+            if (panel) panel.remove();
+            if (backdrop) backdrop.remove();
+            panel = backdrop = null;
+            btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open');
+        };
+        function fill() {
+            const q = $('input', panel).value.trim().toLowerCase(), grid = $('.launch-grid', panel), empty = $('.launch-empty', panel), act = $('.launch-actions', panel);
+            const shown = MODS.filter(m => m.l.toLowerCase().includes(q));
+            grid.replaceChildren(...shown.map(m => {
+                const b = el('button', 'launch-tile' + (m.k === sel ? ' on' : '')), ic = el('span', 'launch-ic'), lab = el('span', 'launch-lab', m.l);
+                b.type = 'button'; b.setAttribute('aria-pressed', String(m.k === sel));
+                ic.style.background = 'var(--tint-' + m.t + ')'; ic.style.color = 'var(--tint-' + m.t + '-ink)'; ic.append(svg(m.i, 18));
+                b.append(ic, lab);
+                b.addEventListener('click', () => { sel = m.k; fill(); });
+                return b;
+            }));
+            empty.hidden = shown.length > 0;
+            const m = MODS.find(x => x.k === sel);
+            $('.launch-qh', panel).textContent = 'QUICK ACTIONS · ' + m.l;
+            act.replaceChildren(...m.a.map(([full, short]) => {
+                const b = el('button', 'launch-pill');
+                b.type = 'button'; b.title = full;
+                b.append(svg('M5 12h14M13 6l6 6-6 6', 16), el('span', '', short));
+                b.addEventListener('click', () => showToast(full + ' — opens in the ' + m.l + ' module.'));
+                return b;
+            }));
+        }
+        function open() {
+            backdrop = el('div', 'launch-backdrop'); panel = el('div', 'launch-panel');
+            panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', 'Module launcher');
+            const sw = el('label', 'launch-search'), inp = el('input');
+            inp.placeholder = 'Find a module'; inp.setAttribute('aria-label', 'Find a module');
+            sw.append(svg('M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.5-3.5', 16), inp);
+            inp.addEventListener('input', fill);
+            const empty = el('div', 'launch-empty', 'No module matches that search.'); empty.hidden = true;
+            panel.append(sw, el('div', 'launch-grid'), empty, el('div', 'launch-rule'), el('div', 'launch-qh'), el('div', 'launch-actions'));
+            backdrop.addEventListener('click', close);
+            launcher.append(backdrop, panel);
+            btn.setAttribute('aria-expanded', 'true'); btn.classList.add('open');
+            fill(); inp.focus();
+        }
+        btn.addEventListener('click', () => (panel ? close() : open()));
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && panel) close(); });
+    }
+
     /* ---------- toasts ---------- */
     const toast = $('#toast');
     let toastTimer;

@@ -96,7 +96,7 @@ public static class FinanceApiMapper
         RtgsRecord ToRecord(RtgsAdviceResponse x) => new()
         {
             No = x.RtgsNo, At = Stamp(x.CreatedOn), By = x.CreatedBy, Sids = x.ServiceIDs.Where(sIds.Contains).ToList(),
-            Common = new RtgsCommon { SenderBank = x.SenderBank, ChequeNo = x.ChequeNo, ChequeDate = Day(x.ChequeDate), RandomNo = x.RandomNo, Remarks = x.Remarks },
+            Common = new RtgsCommon { SenderBank = x.SenderBank, ChequeNo = x.ChequeNo, ChequeDate = Day(x.ChequeDate), RandomNo = x.RandomNo },
         };
         var ordered = advices.OrderBy(x => Parse(x.CreatedOn)).ToList();
         var rtgsLog = ordered.Where(x => !x.IsBulk).Select(ToRecord).ToList();

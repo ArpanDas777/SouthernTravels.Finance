@@ -61,10 +61,6 @@
         }
         <span class="muted fs125">@Model.Count</span>
         <span class="flex1"></span>
-        @foreach (var tb in Model.Tools)
-        {
-            <button type="button" class="btn @(tb.Primary ? "btn-primary" : "")" data-pop="@tb.Pop">@tb.Label</button>
-        }
         @* Advance Report: Bulk Payment. Start shows a tick column on the advances without payment details; Proceed opens the pop-up for the ticked ones. *@
         @if (Model.Bulk != null)
         {

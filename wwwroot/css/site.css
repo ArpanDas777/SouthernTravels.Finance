@@ -245,7 +245,6 @@ tr.detail > td { padding: 0; }
 .advice-id { font: 11px var(--font-num); color: var(--ink-faint); }
 .advice-total { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding: 10px 4px; border-top: 2px solid var(--ink-strong); border-bottom: 4px double var(--ink-strong); }
 .advice-total-v { font: 700 16px var(--font-num); color: var(--ink-strong); }
-.advice-pending { margin-top: 12px; background: var(--warn-bg); border: 1px solid var(--warn-rule); color: var(--warn-ink); border-radius: 6px; padding: 10px 12px; font-size: 12.5px; }
 
 .doc-preview { height: 220px; border: 2px dashed var(--field-rule); border-radius: 8px; background: var(--card-sunken); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--ink-muted); }
 .doc-file { font: 600 13px var(--font-num); color: var(--ink-strong); }
@@ -411,32 +410,11 @@ tr.detail > td { padding: 0; }
 .hist-btns { display: flex; flex-wrap: nowrap; gap: 4px; white-space: nowrap; }
 .hist-table { min-width: 720px; }
 .svc-actions { display: flex; justify-content: flex-end; }
-.bill-hist { margin-top: 14px; border-top: 1px solid var(--rule, #e5e7eb); padding-top: 10px; }
-.bill-hist summary { cursor: pointer; font-weight: 600; font-size: 13px; }
-.bill-hist-frame { overflow-x: auto; margin-top: 8px; border: 1px solid var(--rule, #e5e7eb); border-radius: 6px; }
-.bill-hist-tbl { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
-.bill-hist-tbl th, .bill-hist-tbl td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--rule, #e5e7eb); }
-.bill-hist-tbl .r { text-align: right; }
-.fields-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-@media (max-width: 767.98px) { .fields-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .fld-in-check { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
 .pager-size { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; margin-right: 12px; }
 .cell-sel { height: 26px; font-size: 12px; max-width: 100%; }
 .btn-xs { height: 22px; padding: 0 8px; font-size: 11px; border-radius: 5px; }
 .nw { white-space: nowrap; }
-.fields-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-@media (max-width: 767.98px) { .fields-5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-.rtgs-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 8px 10px; background: var(--card-sunken); border: 1px solid var(--rule); border-radius: 8px; font-size: 12.5px; }
-.rtgs-all { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; }
-.rtgs-picked { color: var(--ink-strong); }
-.rtgs-pick { max-height: 44vh; overflow: auto; margin-top: 8px; border: 1px solid var(--rule); border-radius: 8px; }
-.rtgs-vendor + .rtgs-vendor { border-top: 1px solid var(--rule); }
-.rtgs-vendor-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--thead-bg); position: sticky; top: 0; z-index: 1; font-size: 12.5px; }
-.rtgs-ticket { display: grid; grid-template-columns: 22px minmax(120px, 1fr) minmax(0, 2fr) auto; gap: 10px; align-items: center; padding: 7px 10px; border-top: 1px solid var(--rule-soft); cursor: pointer; font-size: 12.5px; }
-.rtgs-ticket:hover { background: var(--card-sunken); }
-.rtgs-ticket:has(input:checked) { background: var(--info-bg); }
-.rtgs-ticket-id { display: flex; flex-direction: column; line-height: 1.25; }
-.rtgs-ticket-amt { text-align: right; font-variant-numeric: tabular-nums; }
 .edit-sel-view, .edit-sel-form { display: inline-flex; align-items: center; gap: 6px; }
 .edit-sel-view[hidden], .edit-sel-form[hidden] { display: none; }
 
@@ -458,12 +436,8 @@ tr.detail > td { padding: 0; }
     .stack-tbl td:last-child { border-bottom: 0; }
     .stack-tbl td::before { content: attr(data-label); flex: none; font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--ink-muted-2); text-align: left; }
     .stack-tbl td:empty { display: none; }
-    .tbl-scroll, .bill-hist-frame { overflow-x: visible; border: 0; }
+    .tbl-scroll { overflow-x: visible; border: 0; }
     .hist-btns { flex-wrap: wrap; justify-content: flex-end; white-space: normal; }
-    .rtgs-ticket { grid-template-columns: 22px minmax(0, 1fr) auto; }
-    .rtgs-ticket-svc { grid-column: 2 / -1; font-size: 11.5px; color: var(--ink-muted); }
-    .rtgs-bar { gap: 8px; }
-    .rtgs-pick { max-height: 40vh; }
     .period-bar { margin-left: 0; width: 100%; }
     .toolbar-hint { display: none; }
 }
@@ -557,3 +531,25 @@ tr.detail > td { padding: 0; }
 
 /* Vendor Payable (Approval): the action icons sit in a grid, three across and two down (View Bill · View Docs · History / Approve · Reject) (desktop; cards keep their row) */
 @media (min-width: 1280px) { .act-grid .cbox { display: grid; grid-template-columns: repeat(3, max-content); gap: 4px; justify-content: center; } }
+
+/* ---------- module launcher ---------- */
+.launcher { position: relative; flex: none; }
+.topbar-launch { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--rule); border-radius: 6px; background: transparent; color: var(--ink-muted); cursor: pointer; }
+.topbar-launch:hover { background: var(--row-hover); }
+.topbar-launch.open { background: var(--row-selected); }
+.launch-backdrop { position: fixed; inset: 0; z-index: 290; }
+.launch-panel { position: absolute; top: 40px; right: 0; z-index: 300; width: min(400px, calc(100vw - 16px)); padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--surface-raised); border: 1px solid var(--rule); border-radius: 10px; box-shadow: var(--shadow-pop); }
+.launch-search { display: flex; align-items: center; gap: 8px; height: 36px; padding: 0 10px; border: 1px solid var(--field-rule); border-radius: 8px; color: var(--ink-faint); }
+.launch-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: 13px var(--font-ui); color: var(--ink); }
+.launch-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.launch-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 44px; padding: 6px 2px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; font-family: var(--font-ui); }
+.launch-tile:hover { background: var(--row-hover); }
+.launch-tile.on { background: var(--tint-blue); }
+.launch-ic { width: 36px; height: 36px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; }
+.launch-lab { font-size: 12px; color: var(--ink); text-align: center; line-height: 1.2; }
+.launch-empty { padding: 8px 0; text-align: center; font-size: 12.5px; color: var(--ink-muted); }
+.launch-rule { height: 1px; background: var(--rule); }
+.launch-qh { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; color: var(--ink-muted-2); }
+.launch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.launch-pill { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 10px; background: var(--card); color: var(--ink); font: 12.5px var(--font-ui); cursor: pointer; }
+.launch-pill:hover { background: var(--row-hover); }
