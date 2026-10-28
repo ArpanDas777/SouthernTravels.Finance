@@ -70,7 +70,7 @@ public sealed partial class FinanceReports
                 // ✓ and ✕ side by side, icon only; nothing to decide on a document that was not uploaded, and nothing at all when read-only.
                 Line?[] buttons = readOnly || d.St == "N" ? [] : new Line?[]
                 {
-                    d.St == "A" ? null : ActBtn("Approve document", $"/Finance/VendorKyc/Approve?vi={k.Vi}&key={key}", "primary", "check", iconOnly: true),
+                    d.St == "A" ? null : IconBtn("check", "Approve document", act: $"/Finance/VendorKyc/Approve?vi={k.Vi}&key={key}", variant: "primary"),
                     d.St == "R" ? null : IconBtn("x", "Reject document", Pop("kycrej", ("k", k.Vi), ("key", key)), variant: "soft"),
                 };
                 statusRow.Add(Ca("center", [Chip(label, tone, tip), .. buttons]));

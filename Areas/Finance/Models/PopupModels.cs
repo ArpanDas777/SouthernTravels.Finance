@@ -128,3 +128,6 @@ public sealed record TdsTableVm(string AmountLabel, List<TdsRow> Rows);
 /// <summary>One line of an Update UTR table (Bulk Payment / RTGS advice).</summary>
 public sealed record UtrRow(string Sid, Svc S, int Net, bool Paid, string? Utr);
 public sealed record UtrTableVm(string No, List<UtrRow> Rows);
+
+/// <summary>The required Reason box shared by the reject pop-ups (bill, advance, KYC document); <paramref name="Hidden"/> are the posted ids.</summary>
+public sealed record ReasonFieldVm(string Placeholder, (string Name, string Value)[] Hidden);

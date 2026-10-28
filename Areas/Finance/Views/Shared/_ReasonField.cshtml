@@ -1,0 +1,6 @@
+@model ReasonFieldVm
+@* A required Reason textarea with the ids the reject action needs. The pop-up's footer holds the Cancel and submit buttons. *@
+@foreach (var (name, value) in Model.Hidden) { <input type="hidden" name="@name" value="@value"> }
+<label class="fld"><span class="fld-l">Reason<span class="req" aria-hidden="true">*</span></span>
+    <textarea name="reason" rows="3" class="fld-in" style="height:auto;padding:8px 10px;font-family:var(--font-ui)" maxlength="500" data-req aria-required="true" placeholder="@Model.Placeholder"></textarea>
+</label>

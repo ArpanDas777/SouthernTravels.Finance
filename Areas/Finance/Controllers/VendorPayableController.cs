@@ -81,8 +81,8 @@ public class VendorPayableController(IFinanceService finance) : FinanceControlle
     [HttpPost("Approve")]
     public async Task<IActionResult> Approve(string sid, string? returnUrl)
     {
-        if (!Ctx.Approver || Ctx.ReadOnly) return Back(returnUrl, "You do not have permission to approve.");
-        var res = await Finance.ApproveBillAsync(sid, Ctx.UserName);
+        if (ApproverOnly(returnUrl) is { } denied) return denied;
+        var res = await Finance.DecideBillAsync(sid, true, Ctx.UserName);
         var s = St.Svcs().FirstOrDefault(x => x.Id == sid);
         return Back(returnUrl, res.Success ? $"L2 approved — {s?.T.Id} · {s?.Bill?.No}." : SaveFailed(res.Message, "Bill not approved."));
     }
@@ -91,9 +91,9 @@ public class VendorPayableController(IFinanceService finance) : FinanceControlle
     [HttpPost("RejectBill")]
     public async Task<IActionResult> RejectBill(string sid, string? kind, string? reason, string? returnUrl)
     {
-        if (!Ctx.Approver || Ctx.ReadOnly) return Back(returnUrl, "You do not have permission to reject.");
+        if (ApproverOnly(returnUrl) is { } denied) return denied;
         if (kind is not ("Rejected" or "Disputed") || string.IsNullOrWhiteSpace(reason)) return Back(returnUrl, "Not saved — choose Rejected or Disputed and give a reason.");
-        var res = await Finance.RejectBillAsync(sid, kind, reason.Trim(), Ctx.UserName);
+        var res = await Finance.DecideBillAsync(sid, false, Ctx.UserName, kind, reason.Trim());
         var s = St.Svcs().FirstOrDefault(x => x.Id == sid);
         return Back(returnUrl, res.Success ? $"L2 rejected / disputed — {s?.T.Id} · {s?.Bill?.No}." : SaveFailed(res.Message, "Bill not saved."));
     }

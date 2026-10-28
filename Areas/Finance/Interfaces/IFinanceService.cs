@@ -17,8 +17,7 @@ public interface IFinanceService
     // Vendor Payable
     Task<FinanceApiResponse> RaiseBillsAsync(IReadOnlyList<(string Sid, Bill Bill)> bills);
     /// <summary>Approver (L2): approve a bill, or reject / dispute it with a reason.</summary>
-    Task<FinanceApiResponse> ApproveBillAsync(string sid, string by);
-    Task<FinanceApiResponse> RejectBillAsync(string sid, string kind, string reason, string by);
+    Task<FinanceApiResponse> DecideBillAsync(string sid, bool approve, string by, string? kind = null, string? reason = null);
     /// <summary>Approver (L2): approve or reject an advance request.</summary>
     Task<FinanceApiResponse> DecideAdvanceAsync(string sid, bool approve, string by, string? reason = null);
 

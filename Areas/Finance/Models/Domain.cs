@@ -256,7 +256,6 @@ public sealed class RtgsCommon
     public string ChequeNo { get; set; } = "";
     public string ChequeDate { get; set; } = "";
     public string RandomNo { get; set; } = "";
-    public string? Remarks { get; set; }
     /// <summary>Payment mode (RTGS, NEFT or IMPS) of a Bulk Payment advice.</summary>
     public string Mode { get; set; } = "RTGS";
     /// <summary>Physical Cheque or E-Cheque.</summary>

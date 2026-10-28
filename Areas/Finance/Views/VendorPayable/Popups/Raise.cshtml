@@ -5,7 +5,7 @@
     var n = Model.Services.Count;
     // The scanner is reached through a small service on this PC (see Scanner:Url in appsettings.json).
     var scanUrl = Config["Scanner:Url"] ?? "";
-    ViewData["Title"] = Model.Reupload ? "Reupload Bill" : "Upload Bill";
+    ViewData["Title"] = Model.Reupload ? "Re-Upload Bill" : "Upload Bill";
     ViewData["Sub"] = n == 1 ? Model.Services[0].V.Name + " · " + Model.Services[0].V.LegalName : n + " services selected — enter bill details for each";
     ViewData["Width"] = 860;
     ViewData["Action"] = "RaiseBill";

@@ -9,7 +9,6 @@ public sealed record FilterVm(string Name, string Label, string Value, List<stri
 /// <summary>Pager button; a null Url means disabled.</summary>
 public sealed record PageBtn(string Label, string? Url, bool Active);
 public sealed record PagerVm(string Label, List<PageBtn> Pages, List<PageBtn> Sizes);
-public sealed record ToolBtn(string Label, string Pop, bool Primary = false);
 /// <summary>Bulk Payment toolbar: <paramref name="ProceedPopup"/> takes the ticked ids; the history button opens <paramref name="HistoryPopup"/>.</summary>
 public sealed record BulkBar(string ProceedPopup, string HistoryPopup, int HistoryCount, string StartLabel = "Bulk Payment", string HistoryLabel = "Bulk Payment History",
     string Group = "advbulk", bool ExpandAll = false);
@@ -30,8 +29,6 @@ public sealed class ReportVm
     /// <summary>Bulk action label ("Raise Bill" / "Submit"); null hides it.</summary>
     public string? SelLabel { get; init; }
     public string? SelPopup { get; init; }
-    /// <summary>Extra toolbar buttons that open a pop-up (e.g. RTGS Advice History, Create RTGS Advice).</summary>
-    public List<ToolBtn> Tools { get; init; } = [];
     /// <summary>True when ticked services collect in the cart panel (Approved Vendor Payable). Otherwise a bulk action button appears in the toolbar.</summary>
     public bool Cart { get; init; }
     /// <summary>Advance Report: toolbar for Bulk Payment (the bulk tick column, Proceed / Cancel and the history button); null elsewhere.</summary>

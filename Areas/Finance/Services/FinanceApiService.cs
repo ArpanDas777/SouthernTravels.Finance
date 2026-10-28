@@ -106,11 +106,8 @@ public class FinanceApiService : BaseApiService, IFinanceService
             }).ToList(),
         });
 
-    public Task<FinanceApiResponse> ApproveBillAsync(string sid, string by) =>
-        Save(FinanceApiEndpoints.FinanceActions.ApproveVendorBill, new ApproveVendorBillRequest { ServiceID = sid, Status = "A", ApprovedByName = by });
-
-    public Task<FinanceApiResponse> RejectBillAsync(string sid, string kind, string reason, string by) =>
-        Save(FinanceApiEndpoints.FinanceActions.ApproveVendorBill, new ApproveVendorBillRequest { ServiceID = sid, Status = "X", Kind = kind, Reason = reason, ApprovedByName = by });
+    public Task<FinanceApiResponse> DecideBillAsync(string sid, bool approve, string by, string? kind = null, string? reason = null) =>
+        Save(FinanceApiEndpoints.FinanceActions.ApproveVendorBill, new ApproveVendorBillRequest { ServiceID = sid, Status = approve ? "A" : "X", Kind = kind, Reason = reason, ApprovedByName = by });
 
     public Task<FinanceApiResponse> DecideAdvanceAsync(string sid, bool approve, string by, string? reason = null) =>
         Save(FinanceApiEndpoints.FinanceActions.ApproveAdvanceRequest, new ApproveAdvanceRequest { ServiceID = sid, Status = approve ? "A" : "X", Reason = reason, ApprovedByName = by });

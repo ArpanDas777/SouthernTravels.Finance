@@ -49,7 +49,7 @@ public abstract class FinanceControllerBase(IFinanceService finance) : AppContro
     {
         base.OnActionExecuting(context);
         // Approved Vendor Payable and Payment Request are not part of the approver's menu.
-        if (Ctx.Approver && context.RouteData.Values["controller"] is "ApprovedVendorPayable" or "PaymentRequest")
+        if (Ctx.Approver && context.RouteData.Values["controller"] is "ApprovedVendorPayable" or "PaymentRequest" && context.RouteData.Values["action"] is not "Popup")
         {
             context.Result = Redirect(FinanceArea.Home);
             return;
@@ -77,6 +77,9 @@ public abstract class FinanceControllerBase(IFinanceService finance) : AppContro
         return View("Report", vm);
     }
 
+    /// <summary>Approve / reject actions are for the approver only (a read-only user never gets this far: every save is refused earlier). Returns the redirect to send back, or null when allowed.</summary>
+    protected IActionResult? ApproverOnly(string? returnUrl) => Ctx.Approver ? null : Back(returnUrl, "You do not have permission to do that.");
+
     /// <summary>A real yyyy-MM-dd date that is not in the future.</summary>
     protected static bool ValidPaymentDate(string? d) =>
         DateTime.TryParseExact(d, "yyyy-MM-dd", Fmt.Inv, System.Globalization.DateTimeStyles.None, out _) && Fmt.Cmp(d!, Clock.Today) <= 0;
@@ -85,9 +88,9 @@ public abstract class FinanceControllerBase(IFinanceService finance) : AppContro
     /// One RTGS / Bulk Payment letter line per (service, net amount): the net payable to the vendor's legal name, in the given order.
     /// Sender account numbers are placeholders until real ones are supplied.
     /// </summary>
-    protected List<RtgsLetterRow> LetterRowsOf(RtgsRecord rec, IEnumerable<(Svc S, int Net)> items) =>
+    protected List<RtgsLetterRow> LetterRowsOf(RtgsRecord rec, IEnumerable<(Svc S, int Net)> items, string remarks = "") =>
         items.Select((x, i) => new RtgsLetterRow(i + 1, rec.Common.SenderBank + " [A/c No.]", rec.Common.ChequeNo, rec.Common.RandomNo, Fmt.Fd(rec.Common.ChequeDate),
-            St.K[x.S.Vi].Acc, St.K[x.S.Vi].Ifsc, x.Net, x.S.V.LegalName, rec.Common.Remarks ?? "")).ToList();
+            St.K[x.S.Vi].Acc, St.K[x.S.Vi].Ifsc, x.Net, x.S.V.LegalName, remarks)).ToList();
 
     /// <summary>The payment details of an Advance, Bulk Payment, Payment Request or RTGS form (cheque type, mode, STPL bank, cheque / request no., date), or null when any is missing or invalid.</summary>
     protected static (string CType, string Mode, string Bank, string No, string Date)? PaymentDetails(string? ctype, string? mode, string? bank, string? no, string? date) =>

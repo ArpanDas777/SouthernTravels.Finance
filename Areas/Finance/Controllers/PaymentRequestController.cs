@@ -173,7 +173,7 @@ public class PaymentRequestController(IFinanceService finance) : FinanceControll
         if (d is null || (step2 && string.IsNullOrWhiteSpace(utr))) return Back(returnUrl, "Payment not saved — every field is required.");
         var res = await Finance.SavePayDetailsAsync(sid, Ctx.UserName, d.Value.CType, d.Value.Mode, d.Value.Bank, d.Value.No, d.Value.Date, step2 ? utr!.Trim() : null);
         if (!res.Success) return Back(returnUrl, SaveFailed(res.Message, "Payment not saved."));
-        return Back(returnUrl, step2 ? "Payment recorded." : "Payment details added — the advice can now be printed.");
+        return Back(returnUrl, step2 ? "Payment marked as paid." : "Payment details added — Print Advice and Print Cheque are now available.");
     }
 
     /// <summary>Update Details from RTGS Advice History: a UTR per ticket; a ticket with a UTR becomes Paid, the rest stay awaiting.</summary>
@@ -183,6 +183,6 @@ public class PaymentRequestController(IFinanceService finance) : FinanceControll
         var given = (utr ?? []).Where(x => !string.IsNullOrWhiteSpace(x.Value)).ToDictionary(x => x.Key, x => x.Value.Trim());
         if (FindRtgs(no) == null || given.Count == 0) return Back(returnUrl, "UTR not saved — enter at least one UTR.");
         var res = await Finance.SaveRtgsUtrsAsync(no, Ctx.UserName, given);
-        return Back(returnUrl, res.Success ? res.AffectedCount + " ticket(s) of " + no + " marked as paid." : SaveFailed(res.Message, "UTR not saved."));
+        return Back(returnUrl, res.Success ? "UTR updated for " + res.AffectedCount + " ticket(s) — marked as paid." : SaveFailed(res.Message, "UTR not saved."));
     }
 }

@@ -75,9 +75,9 @@ public static class G
     public static Line LinkBtn(string text, string href, string variant = "default", bool dis = false) =>
         new() { Kind = LineKind.Btn, Text = text, Href = dis ? null : href, Variant = variant, Disabled = dis, Icon = BtnIcons.GetValueOrDefault(text) };
 
-    /// <summary>A button that POSTs to <paramref name="act"/> (with the page's antiforgery token) and reloads; site.js handles it. With <paramref name="iconOnly"/> it has no text or tooltip.</summary>
-    public static Line ActBtn(string text, string act, string variant = "default", string? icon = null, bool iconOnly = false, bool dis = false) =>
-        new() { Kind = LineKind.Btn, Text = iconOnly ? "" : text, Act = act, Variant = variant, Icon = icon ?? BtnIcons.GetValueOrDefault(text), Disabled = dis, Meta = iconOnly ? text : null };
+    /// <summary>A button that POSTs to <paramref name="act"/> (with the page's antiforgery token) and reloads; site.js handles it.</summary>
+    public static Line ActBtn(string text, string act, string variant = "default") =>
+        new() { Kind = LineKind.Btn, Text = text, Act = act, Variant = variant, Icon = BtnIcons.GetValueOrDefault(text) };
 
     /// <summary>An icon-only button (no visible text, no tooltip) that opens a pop-up or POSTs.</summary>
     public static Line IconBtn(string icon, string aria, string? pop = null, string? act = null, string variant = "default", bool dis = false) =>

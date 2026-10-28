@@ -1,12 +1,11 @@
 @model Svc
 @{
     Layout = "_Modal";
-    ViewData["Title"] = "Reject / Dispute bill";
+    ViewData["Title"] = "Reject / Dispute Bill";
     ViewData["Sub"] = Model.T.Id + " · " + Model.V.Name + " · " + Model.V.LegalName;
-    ViewData["Width"] = 620;
+    ViewData["Width"] = 480;
     ViewData["Action"] = "RejectBill";
 }
-<input type="hidden" name="sid" value="@Model.Id">
 <partial name="Popups/_BillHead" model="Model" />
 <div class="fld" style="margin-top:12px">
     <span class="fld-l">Mark as<span class="req" aria-hidden="true">*</span></span>
@@ -15,10 +14,8 @@
         <label class="fld-in-check" style="margin-left:16px"><input type="radio" name="kind" value="Disputed"> Disputed</label>
     </span>
 </div>
-<label class="fld" style="margin-top:12px"><span class="fld-l">Reason<span class="req" aria-hidden="true">*</span></span>
-    <textarea name="reason" rows="3" class="fld-in" style="height:auto;padding:8px 10px;font-family:var(--font-ui)" maxlength="500" data-req aria-required="true" placeholder="Why is this bill rejected or disputed?"></textarea>
-</label>
+<div style="margin-top:12px"><partial name="_ReasonField" model="@(new ReasonFieldVm("Why is this bill rejected or disputed?", [("sid", Model.Id)]))" /></div>
 @section Footer {
     <button type="button" class="btn" data-close>Cancel</button>
-    <button type="submit" class="btn btn-soft" data-needs-valid disabled>Submit</button>
+    <button type="submit" class="btn btn-soft" data-needs-valid disabled>Mark Rejected / Disputed</button>
 }
